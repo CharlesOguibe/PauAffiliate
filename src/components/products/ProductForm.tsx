@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -25,7 +26,7 @@ type ProductFormValues = z.infer<typeof productSchema>;
 interface ProductFormProps {
   onSuccess?: (product: Product) => void;
   onCancel?: () => void;
-  initialValues?: Partial<ProductFormValues>;
+  initialValues?: Partial<ProductFormValues & { imageUrl?: string }>;
   productId?: string;
   isEditing?: boolean;
 }
