@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 14% 5%;              /* Darker black background */
+    --foreground: 220 100% 98%;            /* Bright off-white/blue-tinted text */
+
+    --card: 220 14% 8%;
+    --card-foreground: 220 100% 98%;
+
+    --popover: 220 14% 8%;
+    --popover-foreground: 220 100% 98%;
+
+    --primary: 220 100% 60%;               /* Strong blue */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 100% 10%;             /* Deep black-blue */
+    --secondary-foreground: 220 100% 95%;
+
+    --muted: 220 100% 12%;                 /* Deep muted blue-black */
+    --muted-foreground: 220 100% 85%;      /* Lighter blue for contrast */
+
+    --accent: 220 100% 25%;                /* Deep blue accent */
+    --accent-foreground: 220 100% 90%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 100% 15%;                /* Blue-tinted dark border */
+    --input: 220 100% 15%;
+    --ring: 220 100% 60%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 220 14% 4%;
+    --sidebar-foreground: 220 100% 90%;
+    --sidebar-primary: 220 100% 98%;
+    --sidebar-primary-foreground: 220 14% 4%;
+    --sidebar-accent: 220 100% 15%;
+    --sidebar-accent-foreground: 220 100% 95%;
+    --sidebar-border: 220 100% 20%;
+    --sidebar-ring: 220 100% 60%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-sans font-medium tracking-tight;
+  }
+
+  /* Glass morphism */
+  .glass {
+    @apply bg-white/10 backdrop-blur-md border border-white/10;
+  }
+
+  /* Fade in transitions */
+  .page-transition-enter {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  
+  .page-transition-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 300ms, transform 300ms;
+  }
+  
+  .page-transition-exit {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  .page-transition-exit-active {
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: opacity 300ms, transform 300ms;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: hsl(220 100% 25%); /* Deep blue scrollbar */
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(220 100% 15%); /* Darker on hover */
+}
