@@ -45,6 +45,7 @@ export interface ReferralLink {
   code: string;
   clicks: number;
   conversions: number;
+  createdAt: Date;
 }
 
 export interface Sale {

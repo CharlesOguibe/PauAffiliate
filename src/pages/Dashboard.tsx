@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Package, 
@@ -9,17 +9,97 @@ import {
   BarChart3, 
   Settings, 
   Plus,
-  ArrowRight
+  ArrowRight,
+  Copy,
+  CheckCircle
 } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
 import ProductList from '@/components/products/ProductList';
+import { supabase } from '@/integrations/supabase/client';
+import { ReferralLink } from '@/types';
+import { useToast } from '@/hooks/use-toast';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const isAffiliateUser = user?.role === 'affiliate';
   const isBusinessUser = user?.role === 'business';
+  const [referralLinks, setReferralLinks] = useState<Array<ReferralLink & { product: { name: string; price: number; commissionRate: number } }>>([]);
+  const [loading, setLoading] = useState(false);
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAffiliateUser && user?.id) {
+      fetchReferralLinks();
+    }
+  }, [isAffiliateUser, user?.id]);
+
+  const fetchReferralLinks = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('referral_links')
+        .select(`
+          id, 
+          code, 
+          clicks, 
+          conversions, 
+          product_id, 
+          created_at,
+          products (
+            name, 
+            price, 
+            commission_rate
+          )
+        `)
+        .eq('affiliate_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching referral links:', error);
+      } else {
+        setReferralLinks(data.map(item => ({
+          id: item.id,
+          productId: item.product_id,
+          affiliateId: user?.id || '',
+          code: item.code,
+          clicks: item.clicks,
+          conversions: item.conversions,
+          createdAt: new Date(item.created_at),
+          product: {
+            name: item.products.name,
+            price: item.products.price,
+            commissionRate: item.products.commission_rate
+          }
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching referral links:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copyToClipboard = (code: string, id: string) => {
+    const referralLink = `${window.location.origin}/ref/${code}`;
+    navigator.clipboard.writeText(referralLink).then(() => {
+      setCopiedLinkId(id);
+      toast({
+        title: "Success!",
+        description: "Referral link copied to clipboard",
+      });
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    });
+  };
 
   return (
     <div className="min-h-screen bg-secondary/50">
@@ -55,7 +135,9 @@ const Dashboard = () => {
                 <div className="text-sm font-medium text-muted-foreground">
                   {isAffiliateUser ? 'Products Promoting' : 'Your Products'}
                 </div>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">
+                  {isAffiliateUser ? referralLinks.length : '0'}
+                </div>
               </div>
             </div>
           </GlassCard>
@@ -69,7 +151,9 @@ const Dashboard = () => {
                 <div className="text-sm font-medium text-muted-foreground">
                   {isAffiliateUser ? 'Referral Links' : 'Total Referrals'}
                 </div>
-                <div className="text-2xl font-bold">0</div>
+                <div className="text-2xl font-bold">
+                  {isAffiliateUser ? referralLinks.length : '0'}
+                </div>
               </div>
             </div>
           </GlassCard>
@@ -115,25 +199,54 @@ const Dashboard = () => {
 
         {isAffiliateUser && (
           <>
-            <GlassCard className="p-8 text-center mb-6">
-              <div className="flex flex-col items-center justify-center gap-4">
-                <div className="bg-primary/10 p-4 rounded-full">
-                  <Package className="h-10 w-10 text-primary" />
-                </div>
-                <h3 className="text-xl font-medium">Start Promoting Products</h3>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Browse products from PAU businesses and start earning commissions by promoting them.
-                </p>
-                <Link to="/affiliate/browse-products">
-                  <Button variant="primary" className="mt-4">
-                    Browse Products
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+            {referralLinks.length > 0 ? (
+              <div className="mt-8">
+                <h2 className="text-xl font-medium mb-4">Your Referral Links</h2>
+                <GlassCard className="overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead>Commission Rate</TableHead>
+                          <TableHead>Clicks</TableHead>
+                          <TableHead>Conversions</TableHead>
+                          <TableHead>Referral Link</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {referralLinks.map((link) => (
+                          <TableRow key={link.id}>
+                            <TableCell className="font-medium">{link.product.name}</TableCell>
+                            <TableCell>{link.product.commissionRate}%</TableCell>
+                            <TableCell>{link.clicks}</TableCell>
+                            <TableCell>{link.conversions}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center space-x-2">
+                                <code className="bg-muted px-2 py-1 rounded text-xs">
+                                  {`${window.location.origin}/ref/${link.code}`}
+                                </code>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon"
+                                  onClick={() => copyToClipboard(link.code, link.id)}
+                                >
+                                  {copiedLinkId === link.id ? (
+                                    <CheckCircle className="h-4 w-4 text-green-500" />
+                                  ) : (
+                                    <Copy className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </GlassCard>
               </div>
-            </GlassCard>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            ) : (
               <GlassCard className="p-6">
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="bg-primary/10 p-3 rounded-full">
@@ -150,28 +263,15 @@ const Dashboard = () => {
                   </Button>
                 </Link>
               </GlassCard>
-              
-              <GlassCard className="p-6">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <BarChart3 className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-medium">Performance</h3>
-                </div>
-                <p className="text-muted-foreground">
-                  Track the performance of your referral links and commissions earned.
-                </p>
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="text-sm text-muted-foreground">Clicks</div>
-                    <div className="text-xl font-bold">0</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-muted-foreground">Conversions</div>
-                    <div className="text-xl font-bold">0</div>
-                  </div>
-                </div>
-              </GlassCard>
+            )}
+            
+            <div className="mt-8 flex flex-col sm:flex-row gap-4">
+              <Link to="/affiliate/browse-products" className="w-full sm:w-auto">
+                <Button variant="primary" className="w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Browse More Products
+                </Button>
+              </Link>
             </div>
           </>
         )}
