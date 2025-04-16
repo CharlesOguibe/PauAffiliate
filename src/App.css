@@ -1,7 +1,8 @@
+
 #root {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 1rem 2rem;
   text-align: center;
 }
 
@@ -12,10 +13,10 @@
   transition: filter 300ms;
 }
 .logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+  filter: drop-shadow(0 0 2em rgba(100, 108, 255, 0.67));
 }
 .logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+  filter: drop-shadow(0 0 2em rgba(97, 218, 251, 0.67));
 }
 
 @keyframes logo-spin {
@@ -35,8 +36,16 @@
 
 .card {
   padding: 2em;
+  border-radius: var(--radius);
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
 }
 
 .read-the-docs {
-  color: #888;
+  color: hsl(var(--muted-foreground));
+}
+
+/* Glass effects consistent with index.css */
+.glass-effect {
+  @apply bg-white/10 backdrop-blur-md border border-white/10;
 }
