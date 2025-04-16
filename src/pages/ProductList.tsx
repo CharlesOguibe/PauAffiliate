@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, Filter, ArrowUpDown, Tag } from 'lucide-react';
+import { Package, Filter, ArrowUpDown, PenSquare, Trash, ArrowLeft } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
@@ -9,13 +10,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import NairaIcon from '@/components/ui/icons/NairaIcon';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
-type Business = {
-  readonly id: string;
-  readonly name: string;
-};
-
-type BaseProduct = {
+type Product = {
   readonly id: string;
   readonly business_id: string;
   readonly name: string;
@@ -26,70 +23,61 @@ type BaseProduct = {
   readonly created_at: string;
 };
 
-type Product = BaseProduct & {
-  readonly business: Business;
-};
-
-type QueryResult = {
-  products: Product[];
-  error: Error | null;
-};
-
-async function fetchAllProducts(): Promise<Product[]> {
-  try {
-    const { data, error } = await supabase
-      .from('products')
-      .select(`
-        *,
-        business_profiles (
-          id,
-          name
-        )
-      `) as any; // ✅ Avoids type depth issues
-
-    if (error || !data?.length) return [];
-
-    return data.map((product: any) => ({
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      commission_rate: product.commission_rate,
-      image_url: product.image_url,
-      created_at: product.created_at,
-      business_id: product.business_id,
-      business: {
-        id: product.business_profiles?.id || product.business_id,
-        name: product.business_profiles?.name || 'Unknown Business',
-      },
-    })) as Product[];
-  } catch (error) {
-    console.error('Unexpected error:', error);
-    return [];
-  }
-}
-
-
 const ProductList = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [category, setCategory] = useState('all');
   const [sortBy, setSortBy] = useState('name');
   const { user } = useAuth();
-
-  // Redirect business users back to their dashboard
+  const { toast } = useToast();
   const navigate = useNavigate();
-  useEffect(() => {
-    if (user?.role === 'business') {
+
+  // Redirect non-business users back to their dashboard
+  React.useEffect(() => {
+    if (user?.role === 'affiliate') {
       navigate('/dashboard');
-      return;
     }
   }, [user?.role, navigate]);
 
-  const { data: products = [], isLoading, error } = useQuery<Product[]>({
-    queryKey: ['all-products'],
-    queryFn: fetchAllProducts,
-    enabled: !!user && user.role === 'affiliate' // Only fetch if user is an affiliate
+  const { data: products = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['business-products', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('business_id', user.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user && user.role === 'business'
   });
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Product deleted",
+        description: "The product has been successfully deleted.",
+        variant: "default",
+      });
+      
+      refetch();
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      toast({
+        title: "Error",
+        description: "Failed to delete the product. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (!user) {
     return (
@@ -160,28 +148,26 @@ const ProductList = () => {
     );
   }
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      product.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.business.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // For now, show all products since we don't have type filtering yet
-    const matchesCategory = true;
-    
-    return matchesSearch && matchesCategory;
-  }).sort((a, b) => {
-    if (sortBy === 'name') {
-      return a.name.localeCompare(b.name);
-    } else if (sortBy === 'price-asc') {
-      return a.price - b.price;
-    } else if (sortBy === 'price-desc') {
-      return b.price - a.price;
-    } else if (sortBy === 'commission') {
-      return b.commission_rate - a.commission_rate;
-    }
-    return 0;
-  });
+  const filteredProducts = products
+    .filter(product => {
+      const matchesSearch = 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        product.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesSearch;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'name') {
+        return a.name.localeCompare(b.name);
+      } else if (sortBy === 'price-asc') {
+        return a.price - b.price;
+      } else if (sortBy === 'price-desc') {
+        return b.price - a.price;
+      } else if (sortBy === 'commission') {
+        return b.commission_rate - a.commission_rate;
+      }
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-secondary/50">
@@ -205,11 +191,19 @@ const ProductList = () => {
       </header>
 
       <main className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-medium tracking-tight mb-2">Products</h1>
-          <p className="text-muted-foreground">
-            Browse products to promote as an affiliate.
-          </p>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <Link to="/dashboard" className="inline-flex items-center text-sm mb-2">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Dashboard
+            </Link>
+            <h1 className="text-3xl font-medium tracking-tight">Your Products</h1>
+          </div>
+          <Link to="/products/create">
+            <Button variant="primary">
+              Add New Product
+            </Button>
+          </Link>
         </div>
 
         <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -221,33 +215,18 @@ const ProductList = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
           
-          <div className="flex flex-col md:flex-row gap-3">
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="w-36 md:w-44">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="digital">Digital Products</SelectItem>
-                <SelectItem value="physical">Physical Products</SelectItem>
-                <SelectItem value="service">Services</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger className="w-36 md:w-44">
-                <ArrowUpDown className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Sort By" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="name">Name (A-Z)</SelectItem>
-                <SelectItem value="price-asc">Price (Low to High)</SelectItem>
-                <SelectItem value="price-desc">Price (High to Low)</SelectItem>
-                <SelectItem value="commission">Commission (%)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-36 md:w-44">
+              <ArrowUpDown className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Sort By" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="name">Name (A-Z)</SelectItem>
+              <SelectItem value="price-asc">Price (Low to High)</SelectItem>
+              <SelectItem value="price-desc">Price (High to Low)</SelectItem>
+              <SelectItem value="commission">Commission (%)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {filteredProducts.length === 0 ? (
@@ -255,55 +234,71 @@ const ProductList = () => {
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-medium mb-2">No Products Found</h3>
             <p className="text-muted-foreground mb-4">
-              {searchTerm || category !== 'all' 
-                ? "Try adjusting your search or filters"
-                : "No products are available at the moment"}
+              {searchTerm 
+                ? "Try adjusting your search"
+                : "You haven't created any products yet"}
             </p>
+            <Link to="/products/create">
+              <Button variant="primary">
+                Create Your First Product
+              </Button>
+            </Link>
           </GlassCard>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((product, index) => (
+          <div className="space-y-4">
+            {filteredProducts.map((product) => (
               <GlassCard
                 key={product.id}
-                className="p-6 flex flex-col h-full animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
+                className="p-4 animate-fade-in"
               >
-                <div className="h-40 bg-muted/50 rounded-md flex items-center justify-center mb-4">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.name} className="h-full w-full object-cover rounded-md" />
-                  ) : (
-                    <Package className="h-12 w-12 text-muted-foreground" />
-                  )}
-                </div>
-                
-                <div className="mb-4">
-                  <div className="flex items-start justify-between mb-1">
-                    <h3 className="font-medium">{product.name}</h3>
-                    <div className="flex items-center bg-primary/10 text-primary text-xs px-2 py-1 rounded-full">
-                      <Tag className="h-3 w-3 mr-1" />
-                      {product.commission_rate}% commission
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-md" />
+                      ) : (
+                        <Package className="h-6 w-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="font-medium">{product.name}</h3>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <div className="flex items-center">
+                          <NairaIcon className="h-3 w-3 mr-1" />
+                          <span>{product.price.toFixed(2)}</span>
+                        </div>
+                        <span>•</span>
+                        <span>{product.commission_rate}% commission</span>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mb-2">{product.business.name}</p>
-                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{product.description}</p>
-                  <div className="flex items-center">
-                    <NairaIcon className="h-4 w-4 text-primary mr-1" />
-                    <p className="font-medium">{product.price.toFixed(2)}</p>
+                  
+                  <div className="flex items-center space-x-2">
+                    <Link to={`/products/${product.id}/edit`}>
+                      <Button variant="outline" size="sm">
+                        <PenSquare className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleDeleteProduct(product.id)}
+                    >
+                      <Trash className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                    <Link to={`/products/${product.id}`}>
+                      <Button variant="primary" size="sm">
+                        View Details
+                      </Button>
+                    </Link>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3 mt-auto">
-                  <Link to={`/products/${product.id}`}>
-                    <Button variant="outline" className="w-full">
-                      View Details
-                    </Button>
-                  </Link>
-                  <Link to={`/products/${product.id}/promote`}>
-                    <Button variant="primary" className="w-full">
-                      Promote
-                    </Button>
-                  </Link>
-                </div>
+                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
+                  {product.description || "No description provided."}
+                </p>
               </GlassCard>
             ))}
           </div>
