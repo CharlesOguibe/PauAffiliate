@@ -12,6 +12,7 @@ import ProductList from "./pages/ProductList";
 import ProductCreate from "./pages/ProductCreate";
 import ProductDetail from "./pages/ProductDetail";
 import ProductEdit from "./pages/ProductEdit";
+import AffiliateBrowseProducts from "./pages/AffiliateBrowseProducts";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -51,6 +52,11 @@ const App = () => (
             <Route path="/products/:id/edit" element={
               <ProtectedRoute>
                 <ProductEdit />
+              </ProtectedRoute>
+            } />
+            <Route path="/affiliate/browse-products" element={
+              <ProtectedRoute>
+                <AffiliateBrowseProducts />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

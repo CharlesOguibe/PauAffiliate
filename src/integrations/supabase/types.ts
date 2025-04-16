@@ -98,12 +98,53 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_links: {
+        Row: {
+          affiliate_id: string
+          clicks: number
+          code: string
+          conversions: number
+          created_at: string
+          id: string
+          product_id: string
+        }
+        Insert: {
+          affiliate_id: string
+          clicks?: number
+          code: string
+          conversions?: number
+          created_at?: string
+          id?: string
+          product_id: string
+        }
+        Update: {
+          affiliate_id?: string
+          clicks?: number
+          code?: string
+          conversions?: number
+          created_at?: string
+          id?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referral_links_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_referral_code: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
