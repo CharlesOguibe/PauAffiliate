@@ -9,6 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      affiliate_earnings: {
+        Row: {
+          affiliate_id: string
+          amount: number
+          created_at: string
+          id: string
+          sale_id: string
+          status: string
+        }
+        Insert: {
+          affiliate_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          sale_id: string
+          status: string
+        }
+        Update: {
+          affiliate_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          sale_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "affiliate_earnings_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_profiles: {
         Row: {
           created_at: string
@@ -77,6 +112,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          earnings: number | null
           email: string
           id: string
           name: string
@@ -84,6 +120,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          earnings?: number | null
           email: string
           id: string
           name: string
@@ -91,6 +128,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          earnings?: number | null
           email?: string
           id?: string
           name?: string
@@ -132,6 +170,54 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sales: {
+        Row: {
+          amount: number
+          commission_amount: number
+          created_at: string
+          customer_email: string | null
+          id: string
+          product_id: string
+          referral_link_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          commission_amount: number
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          product_id: string
+          referral_link_id: string
+          status: string
+        }
+        Update: {
+          amount?: number
+          commission_amount?: number
+          created_at?: string
+          customer_email?: string | null
+          id?: string
+          product_id?: string
+          referral_link_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sales_referral_link_id_fkey"
+            columns: ["referral_link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
             referencedColumns: ["id"]
           },
         ]
