@@ -8,9 +8,19 @@ export const useReferralTracking = (code: string | null) => {
       if (!code) return;
       
       try {
+        // First get the current clicks value
+        const { data, error: fetchError } = await supabase
+          .from('referral_links')
+          .select('clicks')
+          .eq('code', code)
+          .single();
+          
+        if (fetchError) throw fetchError;
+        
+        // Then update with the incremented value
         const { error } = await supabase
           .from('referral_links')
-          .update({ clicks: sql`clicks + 1` })
+          .update({ clicks: (data?.clicks || 0) + 1 })
           .eq('code', code);
           
         if (error) throw error;
