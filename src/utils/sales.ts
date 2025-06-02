@@ -69,16 +69,26 @@ export const recordSale = async ({ productId, amount, customerEmail }: RecordSal
 
     // If this is a referral sale, update the referral link conversions
     if (referralLinkId) {
-      const { error: conversionError } = await supabase
+      // Get current conversions count
+      const { data: currentLink, error: fetchError } = await supabase
         .from('referral_links')
-        .update({ 
-          conversions: supabase.rpc('increment_conversion', { link_id: referralLinkId })
-        })
-        .eq('id', referralLinkId);
+        .select('conversions')
+        .eq('id', referralLinkId)
+        .single();
 
-      if (conversionError) {
-        console.error('Error updating conversion count:', conversionError);
-        // Don't fail the sale for this
+      if (!fetchError && currentLink) {
+        // Update conversions count
+        const { error: conversionError } = await supabase
+          .from('referral_links')
+          .update({ 
+            conversions: (currentLink.conversions || 0) + 1
+          })
+          .eq('id', referralLinkId);
+
+        if (conversionError) {
+          console.error('Error updating conversion count:', conversionError);
+          // Don't fail the sale for this
+        }
       }
     }
 
