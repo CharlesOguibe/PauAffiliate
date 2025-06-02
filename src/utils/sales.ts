@@ -19,7 +19,7 @@ export const PLATFORM_FEE_PERCENTAGE = 10; // 10% platform fee
 
 export const recordSale = async (product: Product, customerEmail?: string): Promise<SaleResult | null> => {
   try {
-    const referralCode = localStorage.getItem('referral_code');
+    console.log('Recording sale for product:', product.id);
     
     // Get business ID for the product
     const { data: productData, error: productError } = await supabase
@@ -28,29 +28,39 @@ export const recordSale = async (product: Product, customerEmail?: string): Prom
       .eq('id', product.id)
       .single();
     
-    if (productError) throw productError;
+    if (productError) {
+      console.error('Error fetching product business_id:', productError);
+      throw productError;
+    }
+
+    const referralCode = localStorage.getItem('referral_code');
+    console.log('Referral code from localStorage:', referralCode);
     
-    // If no referral code, it's a direct sale without referral commission
+    // If no referral code, record as direct sale
     if (!referralCode) {
-      // For direct sales, simply record it without referral info
+      console.log('Recording direct sale (no referral)');
+      
+      // Create a system referral link for direct sales if it doesn't exist
+      let systemReferralId = '00000000-0000-0000-0000-000000000001';
+      
       const { data: sale, error } = await supabase
         .from('sales')
         .insert({
           product_id: product.id,
-          // We need a referral link ID for the schema, but we can use a placeholder
-          // or create a system referral link for direct sales
-          referral_link_id: '00000000-0000-0000-0000-000000000000', // Use your system referral ID
+          referral_link_id: systemReferralId,
           amount: product.price,
-          commission_amount: 0, // No commission for direct sales
+          commission_amount: 0,
           status: 'completed',
           customer_email: customerEmail
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error recording direct sale:', error);
+        throw error;
+      }
       
-      // Calculate platform fee and business revenue
       const platformFee = (product.price * PLATFORM_FEE_PERCENTAGE) / 100;
       const businessRevenue = product.price - platformFee;
       
@@ -67,28 +77,35 @@ export const recordSale = async (product: Product, customerEmail?: string): Prom
       };
     }
 
-    // Get referral link details
+    // Handle referral sale
+    console.log('Processing referral sale');
+    
     const { data: referralLink, error: referralError } = await supabase
       .from('referral_links')
       .select('id, affiliate_id')
       .eq('code', referralCode)
-      .single();
+      .maybeSingle();
 
-    if (referralError) {
-      console.error('Error finding referral:', referralError);
-      toast.error('Invalid referral code');
+    if (referralError || !referralLink) {
+      console.error('Error finding referral or referral not found:', referralError);
+      toast.error('Invalid referral code - processing as direct sale');
       localStorage.removeItem('referral_code');
-      return null;
+      
+      // Fall back to direct sale
+      return recordSale(product, customerEmail);
     }
 
-    // Calculate commission amount
-    const commissionAmount = (product.price * product.commissionRate) / 100;
-    
-    // Calculate platform fee - applied after commission
+    // Calculate commission and fees
+    const commissionAmount = (product.price * (product.commissionRate || 0)) / 100;
     const platformFee = ((product.price - commissionAmount) * PLATFORM_FEE_PERCENTAGE) / 100;
-    
-    // Calculate business revenue
     const businessRevenue = product.price - commissionAmount - platformFee;
+
+    console.log('Sale calculations:', {
+      amount: product.price,
+      commissionAmount,
+      platformFee,
+      businessRevenue
+    });
 
     // Record the sale
     const { data: sale, error } = await supabase
@@ -104,12 +121,15 @@ export const recordSale = async (product: Product, customerEmail?: string): Prom
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error recording referral sale:', error);
+      throw error;
+    }
 
-    // Clear the referral code from localStorage after successful sale
+    // Clear referral code after successful sale
     localStorage.removeItem('referral_code');
+    console.log('Sale recorded successfully:', sale.id);
 
-    // Return the complete sale information
     return {
       saleId: sale.id,
       productId: product.id,
@@ -121,6 +141,7 @@ export const recordSale = async (product: Product, customerEmail?: string): Prom
       businessRevenue,
       timestamp: sale.created_at
     };
+
   } catch (error) {
     console.error('Error recording sale:', error);
     toast.error('Failed to process the sale');
@@ -128,7 +149,6 @@ export const recordSale = async (product: Product, customerEmail?: string): Prom
   }
 };
 
-// Helper function to format currency values
 export const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('en-NG', {
     style: 'currency',

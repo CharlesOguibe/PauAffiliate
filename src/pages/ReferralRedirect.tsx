@@ -2,70 +2,105 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useReferralTracking } from '@/hooks/useReferralTracking';
 
 const ReferralRedirect = () => {
   const { code } = useParams();
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
-  
-  useReferralTracking(code);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const redirectToProduct = async () => {
+    const handleReferral = async () => {
+      console.log('Processing referral code:', code);
+      
       if (!code) {
-        setError('Invalid referral link');
+        setError('No referral code provided');
+        setIsLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase
+        // Check if referral link exists and get product info
+        const { data: referralLink, error: referralError } = await supabase
           .from('referral_links')
-          .select('product_id')
+          .select('id, product_id, clicks')
           .eq('code', code)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
-        if (!data) {
-          setError('Invalid referral link');
+        if (referralError) {
+          console.error('Database error:', referralError);
+          setError('Error checking referral link');
+          setIsLoading(false);
           return;
         }
 
-        // Store referral info in localStorage
+        if (!referralLink) {
+          console.log('Referral link not found for code:', code);
+          setError('Invalid referral code');
+          setIsLoading(false);
+          return;
+        }
+
+        console.log('Found referral link:', referralLink);
+
+        // Update click count
+        const { error: updateError } = await supabase
+          .from('referral_links')
+          .update({ clicks: (referralLink.clicks || 0) + 1 })
+          .eq('code', code);
+
+        if (updateError) {
+          console.error('Error updating clicks:', updateError);
+          // Don't fail the redirect for this
+        }
+
+        // Store referral info
         localStorage.setItem('referral_code', code);
+        console.log('Stored referral code in localStorage');
         
         // Redirect to product page
-        navigate(`/products/${data.product_id}`);
+        navigate(`/products/${referralLink.product_id}`);
+        
       } catch (error) {
-        console.error('Error processing referral:', error);
-        setError('Error processing referral link');
+        console.error('Unexpected error:', error);
+        setError('An unexpected error occurred');
+        setIsLoading(false);
       }
     };
 
-    redirectToProduct();
+    handleReferral();
   }, [code, navigate]);
 
-  if (error) {
+  if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-secondary/50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <h1 className="text-2xl font-medium text-destructive mb-4">{error}</h1>
-          <p className="text-muted-foreground">
-            The referral link you followed appears to be invalid.
-          </p>
+          <div className="h-8 w-8 mx-auto mb-4 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
+          <p className="text-gray-600">Processing referral...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-secondary/50">
-      <div className="animate-pulse text-center">
-        <div className="h-8 w-8 mx-auto mb-4 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-        <p className="text-muted-foreground">Redirecting...</p>
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Referral Error</h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Go to Homepage
+          </button>
+        </div>
       </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 };
 
 export default ReferralRedirect;
