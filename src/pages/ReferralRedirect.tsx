@@ -25,7 +25,7 @@ const ReferralRedirect = () => {
         throw new Error('No referral code provided');
       }
 
-      // Get referral link with product details
+      // Get referral link with product details - use maybeSingle to handle no results
       const { data: referralLink, error: referralError } = await supabase
         .from('referral_links')
         .select(`
@@ -45,7 +45,7 @@ const ReferralRedirect = () => {
           )
         `)
         .eq('code', code)
-        .single();
+        .maybeSingle();
 
       if (referralError) {
         console.error('Database error:', referralError);
@@ -54,7 +54,7 @@ const ReferralRedirect = () => {
 
       if (!referralLink) {
         console.log('Referral link not found for code:', code);
-        throw new Error('Invalid referral code');
+        throw new Error('Invalid referral code - this link may have expired or been removed');
       }
 
       console.log('Found referral link:', referralLink);
@@ -77,7 +77,8 @@ const ReferralRedirect = () => {
       
       return referralLink;
     },
-    enabled: !!code
+    enabled: !!code,
+    retry: false // Don't retry on failure
   });
 
   const handlePurchase = async () => {
@@ -139,9 +140,12 @@ const ReferralRedirect = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Referral Error</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Referral Link</h1>
           <p className="text-gray-600 mb-4">
-            {error?.message || 'Product not found for this referral code'}
+            {error?.message || 'This referral code is not valid or may have expired.'}
+          </p>
+          <p className="text-sm text-gray-500 mb-4">
+            Referral Code: <span className="font-mono font-bold">{code}</span>
           </p>
           <button
             onClick={() => navigate('/')}
