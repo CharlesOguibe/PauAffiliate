@@ -25,25 +25,10 @@ const ReferralRedirect = () => {
         throw new Error('No referral code provided');
       }
 
-      // Get referral link with product details - use maybeSingle to handle no results
+      // Get referral link data first
       const { data: referralLink, error: referralError } = await supabase
         .from('referral_links')
-        .select(`
-          id,
-          code,
-          clicks,
-          affiliate_id,
-          product_id,
-          products (
-            id,
-            name,
-            description,
-            price,
-            commission_rate,
-            image_url,
-            business_id
-          )
-        `)
+        .select('*')
         .eq('code', code)
         .maybeSingle();
 
@@ -58,6 +43,20 @@ const ReferralRedirect = () => {
       }
 
       console.log('Found referral link:', referralLink);
+
+      // Now get the product details
+      const { data: product, error: productError } = await supabase
+        .from('products')
+        .select('*')
+        .eq('id', referralLink.product_id)
+        .single();
+
+      if (productError) {
+        console.error('Product error:', productError);
+        throw new Error('Product not found for this referral link');
+      }
+
+      console.log('Found product:', product);
 
       // Update click count
       const { error: updateError } = await supabase
@@ -75,7 +74,10 @@ const ReferralRedirect = () => {
       localStorage.setItem('referral_link_id', referralLink.id);
       localStorage.setItem('affiliate_id', referralLink.affiliate_id);
       
-      return referralLink;
+      return {
+        ...referralLink,
+        products: product // Keep the same structure for compatibility
+      };
     },
     enabled: !!code,
     retry: false // Don't retry on failure
