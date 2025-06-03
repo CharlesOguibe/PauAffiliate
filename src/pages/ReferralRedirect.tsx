@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -25,30 +24,31 @@ const ReferralRedirect = () => {
         throw new Error('No referral code provided');
       }
 
-      // Get referral link data first
       const { data: referralLink, error: referralError } = await supabase
-        .from('referral_links')
-        .select('*')
-        .eq('code', code)
-        .maybeSingle();
-
+        .from("referral_links")
+        .select("*")
+        .eq("code", code);
+      
+      console.log(referralLink, referralError);
+      
       if (referralError) {
         console.error('Database error:', referralError);
         throw new Error('Error checking referral link');
       }
 
-      if (!referralLink) {
+      if (!referralLink || referralLink.length === 0) {
         console.log('Referral link not found for code:', code);
         throw new Error('Invalid referral code - this link may have expired or been removed');
       }
 
-      console.log('Found referral link:', referralLink);
+      const linkData = referralLink[0];
+      console.log('Found referral link:', linkData);
 
       // Now get the product details
       const { data: product, error: productError } = await supabase
         .from('products')
         .select('*')
-        .eq('id', referralLink.product_id)
+        .eq('id', linkData.product_id)
         .single();
 
       if (productError) {
@@ -61,7 +61,7 @@ const ReferralRedirect = () => {
       // Update click count
       const { error: updateError } = await supabase
         .from('referral_links')
-        .update({ clicks: (referralLink.clicks || 0) + 1 })
+        .update({ clicks: (linkData.clicks || 0) + 1 })
         .eq('code', code);
 
       if (updateError) {
@@ -71,11 +71,11 @@ const ReferralRedirect = () => {
 
       // Store referral info in localStorage
       localStorage.setItem('referral_code', code);
-      localStorage.setItem('referral_link_id', referralLink.id);
-      localStorage.setItem('affiliate_id', referralLink.affiliate_id);
+      localStorage.setItem('referral_link_id', linkData.id);
+      localStorage.setItem('affiliate_id', linkData.affiliate_id);
       
       return {
-        ...referralLink,
+        ...linkData,
         products: product // Keep the same structure for compatibility
       };
     },
