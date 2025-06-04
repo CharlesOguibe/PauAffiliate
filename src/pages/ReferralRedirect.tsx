@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -16,18 +17,6 @@ const ReferralRedirect = () => {
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
 
-  // Load Flutterwave script
-  useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://checkout.flutterwave.com/v3.js';
-    script.async = true;
-    document.head.appendChild(script);
-    
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, []);
-
   const { data: referralData, isLoading, error } = useQuery({
     queryKey: ['referral', code],
     queryFn: async () => {
@@ -37,63 +26,44 @@ const ReferralRedirect = () => {
         throw new Error('No referral code provided');
       }
 
+      // Simplified query - just get the referral link and product
       const { data: referralLink, error: referralError } = await supabase
         .from("referral_links")
-        .select("*")
-        .eq("code", code);
-      
-      console.log(referralLink, referralError);
-      
-      if (referralError) {
-        console.error('Database error:', referralError);
-        throw new Error('Error checking referral link');
-      }
-
-      if (!referralLink || referralLink.length === 0) {
-        console.log('Referral link not found for code:', code);
-        throw new Error('Invalid referral code - this link may have expired or been removed');
-      }
-
-      const linkData = referralLink[0];
-      console.log('Found referral link:', linkData);
-
-      // Now get the product details
-      const { data: product, error: productError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('id', linkData.product_id)
+        .select(`
+          *,
+          products (*)
+        `)
+        .eq("code", code)
         .single();
-
-      if (productError) {
-        console.error('Product error:', productError);
-        throw new Error('Product not found for this referral link');
-      }
-
-      console.log('Found product:', product);
-
-      // Update click count
-      const { error: updateError } = await supabase
-        .from('referral_links')
-        .update({ clicks: (linkData.clicks || 0) + 1 })
-        .eq('code', code);
-
-      if (updateError) {
-        console.error('Error updating clicks:', updateError);
-        // Don't fail for this
-      }
-
-      // Store referral info in localStorage
-      localStorage.setItem('referral_code', code);
-      localStorage.setItem('referral_link_id', linkData.id);
-      localStorage.setItem('affiliate_id', linkData.affiliate_id);
       
-      return {
-        ...linkData,
-        products: product // Keep the same structure for compatibility
-      };
+      console.log('Query result:', referralLink, referralError);
+      
+      if (referralError || !referralLink) {
+        console.log('Referral link not found for code:', code);
+        throw new Error('Invalid referral code');
+      }
+
+      console.log('Found referral link and product:', referralLink);
+
+      // Update click count (don't fail if this doesn't work)
+      try {
+        await supabase
+          .from('referral_links')
+          .update({ clicks: (referralLink.clicks || 0) + 1 })
+          .eq('id', referralLink.id);
+      } catch (updateError) {
+        console.log('Could not update clicks, but continuing:', updateError);
+      }
+
+      // Store referral info in localStorage for the purchase
+      localStorage.setItem('referral_code', code);
+      localStorage.setItem('referral_link_id', referralLink.id);
+      localStorage.setItem('affiliate_id', referralLink.affiliate_id);
+      
+      return referralLink;
     },
     enabled: !!code,
-    retry: false // Don't retry on failure
+    retry: false
   });
 
   const handlePurchase = async () => {
@@ -195,7 +165,7 @@ const ReferralRedirect = () => {
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Invalid Referral Link</h1>
           <p className="text-gray-600 mb-4">
-            {error?.message || 'This referral code is not valid or may have expired.'}
+            This referral code is not valid or the product may no longer be available.
           </p>
           <p className="text-sm text-gray-500 mb-4">
             Referral Code: <span className="font-mono font-bold">{code}</span>
