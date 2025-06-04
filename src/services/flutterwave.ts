@@ -16,7 +16,20 @@ interface FlutterwavePaymentData {
   };
 }
 
-export const initializeFlutterwavePayment = (paymentData: FlutterwavePaymentData) => {
+interface FlutterwavePaymentResult {
+  status: string;
+  transaction_id: string;
+  tx_ref: string;
+  flw_ref: string;
+  amount: number;
+  currency: string;
+  customer: {
+    email: string;
+    name: string;
+  };
+}
+
+export const initializeFlutterwavePayment = (paymentData: FlutterwavePaymentData): Promise<FlutterwavePaymentResult> => {
   return new Promise((resolve, reject) => {
     // Get Flutterwave public key from environment
     const publicKey = 'FLWPUBK_TEST-SANDBOXDEMOKEY-X'; // Replace with your actual public key
@@ -41,7 +54,7 @@ export const initializeFlutterwavePayment = (paymentData: FlutterwavePaymentData
         description: paymentData.customizations?.description || 'Purchase payment',
         logo: paymentData.customizations?.logo || '',
       },
-      callback: function (data: any) {
+      callback: function (data: FlutterwavePaymentResult) {
         console.log('Flutterwave callback:', data);
         if (data.status === 'successful') {
           resolve(data);
