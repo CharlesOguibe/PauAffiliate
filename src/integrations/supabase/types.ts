@@ -68,6 +68,59 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          customer_email: string
+          customer_name: string | null
+          flutterwave_transaction_id: string | null
+          id: string
+          payment_method: string | null
+          sale_id: string | null
+          status: string
+          transaction_reference: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          customer_email: string
+          customer_name?: string | null
+          flutterwave_transaction_id?: string | null
+          id?: string
+          payment_method?: string | null
+          sale_id?: string | null
+          status?: string
+          transaction_reference: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          customer_email?: string
+          customer_name?: string | null
+          flutterwave_transaction_id?: string | null
+          id?: string
+          payment_method?: string | null
+          sale_id?: string | null
+          status?: string
+          transaction_reference?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           business_id: string
@@ -184,6 +237,7 @@ export type Database = {
           product_id: string
           referral_link_id: string
           status: string
+          transaction_reference: string | null
         }
         Insert: {
           amount: number
@@ -194,6 +248,7 @@ export type Database = {
           product_id: string
           referral_link_id: string
           status: string
+          transaction_reference?: string | null
         }
         Update: {
           amount?: number
@@ -204,6 +259,7 @@ export type Database = {
           product_id?: string
           referral_link_id?: string
           status?: string
+          transaction_reference?: string | null
         }
         Relationships: [
           {

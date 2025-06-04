@@ -6,7 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import NairaIcon from '@/components/ui/icons/NairaIcon';
-import { recordSale } from '@/utils/sales';
+import { createPendingSale } from '@/utils/sales';
+import { initializeFlutterwavePayment, verifyFlutterwavePayment } from '@/services/flutterwave';
 import { useToast } from '@/hooks/use-toast';
 
 const ReferralRedirect = () => {
@@ -14,6 +15,18 @@ const ReferralRedirect = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
+
+  // Load Flutterwave script
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.flutterwave.com/v3.js';
+    script.async = true;
+    document.head.appendChild(script);
+    
+    return () => {
+      document.head.removeChild(script);
+    };
+  }, []);
 
   const { data: referralData, isLoading, error } = useQuery({
     queryKey: ['referral', code],
@@ -88,37 +101,75 @@ const ReferralRedirect = () => {
     
     setIsPurchasing(true);
     try {
+      // Get customer details
       const customerEmail = prompt('Please enter your email for the purchase:');
       if (!customerEmail) {
         setIsPurchasing(false);
         return;
       }
 
-      await recordSale({
+      const customerName = prompt('Please enter your full name:');
+      if (!customerName) {
+        setIsPurchasing(false);
+        return;
+      }
+
+      // Create pending sale
+      const { sale, txRef } = await createPendingSale({
         productId: referralData.products.id,
         amount: referralData.products.price,
-        customerEmail
+        customerEmail,
+        customerName
       });
 
-      toast({
-        title: "Purchase Successful!",
-        description: "Your purchase has been completed successfully.",
-        variant: "default",
+      console.log('Pending sale created:', sale);
+
+      // Initialize Flutterwave payment
+      const paymentResult = await initializeFlutterwavePayment({
+        amount: referralData.products.price,
+        currency: 'NGN',
+        customer: {
+          email: customerEmail,
+          name: customerName,
+        },
+        tx_ref: txRef,
+        customizations: {
+          title: referralData.products.name,
+          description: `Purchase of ${referralData.products.name}`,
+        },
       });
 
-      // Clear referral data after successful purchase
-      localStorage.removeItem('referral_code');
-      localStorage.removeItem('referral_link_id');
-      localStorage.removeItem('affiliate_id');
+      console.log('Payment result:', paymentResult);
 
-      // Redirect to a success page or homepage
-      navigate('/');
+      // Verify payment
+      const verification = await verifyFlutterwavePayment(
+        paymentResult.transaction_id,
+        txRef
+      );
+
+      if (verification.success) {
+        toast({
+          title: "Payment Successful!",
+          description: "Your purchase has been completed successfully.",
+          variant: "default",
+        });
+
+        // Clear referral data after successful purchase
+        localStorage.removeItem('referral_code');
+        localStorage.removeItem('referral_link_id');
+        localStorage.removeItem('affiliate_id');
+
+        // Redirect to a success page or homepage
+        navigate('/');
+      } else {
+        throw new Error('Payment verification failed');
+      }
       
     } catch (error) {
       console.error('Purchase error:', error);
       toast({
-        title: "Purchase Failed",
-        description: "There was an error processing your purchase. Please try again.",
+        title: "Payment Failed",
+        description: error instanceof Error ? error.message : "There was an error processing your payment. Please try again.",
         variant: "destructive",
       });
     } finally {
