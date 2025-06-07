@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 interface RecordSaleParams {
@@ -43,14 +44,18 @@ export const createPendingSale = async ({ productId, amount, customerEmail, cust
       commissionAmount
     });
 
-    // Create pending sale record
+    // Generate transaction reference first
+    const txRef = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create pending sale record with transaction reference
     const saleData = {
       product_id: productId,
       amount: amount,
       commission_amount: commissionAmount,
       status: 'pending',
       customer_email: customerEmail || null,
-      referral_link_id: referralLinkId
+      referral_link_id: referralLinkId,
+      transaction_reference: txRef
     };
 
     const { data: sale, error: saleError } = await supabase
@@ -65,9 +70,6 @@ export const createPendingSale = async ({ productId, amount, customerEmail, cust
     }
 
     console.log('Pending sale created successfully:', sale);
-
-    // Generate transaction reference
-    const txRef = `sale_${sale.id}_${Date.now()}`;
 
     // Create pending payment transaction
     const { error: transactionError } = await supabase

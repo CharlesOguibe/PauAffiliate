@@ -80,8 +80,60 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // First, find the existing pending sale using the transaction reference
+    const { data: existingSale, error: saleError } = await supabase
+      .from('sales')
+      .select(`
+        *,
+        products (
+          business_id,
+          commission_rate,
+          name
+        ),
+        referral_links (
+          affiliate_id
+        )
+      `)
+      .eq('transaction_reference', tx_ref)
+      .eq('status', 'pending')
+      .single()
+
+    if (saleError || !existingSale) {
+      console.error('Error finding pending sale:', saleError)
+      return new Response(
+        JSON.stringify({ error: 'Pending sale not found for this transaction' }),
+        { 
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    console.log('Found pending sale:', existingSale)
+
+    // Update the sale to completed
+    const { error: updateSaleError } = await supabase
+      .from('sales')
+      .update({
+        status: 'completed'
+      })
+      .eq('id', existingSale.id)
+
+    if (updateSaleError) {
+      console.error('Error updating sale status:', updateSaleError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to update sale status' }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    console.log('Sale updated to completed:', existingSale.id)
+
     // Update or create payment transaction record
-    const { data: transaction, error: transactionError } = await supabase
+    const { error: transactionError } = await supabase
       .from('payment_transactions')
       .upsert({
         transaction_reference: tx_ref,
@@ -92,115 +144,110 @@ serve(async (req) => {
         customer_name: paymentData.customer.name,
         status: 'completed',
         payment_method: paymentData.payment_type,
+        sale_id: existingSale.id
       }, {
         onConflict: 'transaction_reference'
       })
-      .select()
-      .single()
 
     if (transactionError) {
-      console.error('Error creating payment transaction:', transactionError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to record payment transaction' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      console.error('Error updating payment transaction:', transactionError)
     }
 
-    // Get sale information from transaction reference
-    const saleId = tx_ref.split('_')[1] // Assuming format: sale_{saleId}
-    
-    if (saleId) {
-      // Update the sale record
-      const { data: sale, error: saleError } = await supabase
-        .from('sales')
-        .update({
-          status: 'completed',
-          transaction_reference: tx_ref
-        })
-        .eq('id', saleId)
-        .select(`
-          *,
-          products (
-            business_id,
-            commission_rate
-          ),
-          referral_links (
-            affiliate_id
-          )
-        `)
-        .single()
+    // Calculate financial breakdown
+    const totalAmount = existingSale.amount
+    const commissionAmount = existingSale.commission_amount
+    const platformFeeRate = 0.05 // 5% platform fee
+    const platformFee = totalAmount * platformFeeRate
+    const businessRevenue = totalAmount - commissionAmount - platformFee
 
-      if (saleError || !sale) {
-        console.error('Error updating sale:', saleError)
-      } else {
-        console.log('Sale updated successfully:', sale)
-        
-        // Calculate amounts
-        const totalAmount = sale.amount
-        const commissionAmount = sale.commission_amount
-        const platformFeeRate = 0.05 // 5% platform fee
-        const platformFee = totalAmount * platformFeeRate
-        const businessRevenue = totalAmount - commissionAmount - platformFee
+    console.log('Financial breakdown:', {
+      totalAmount,
+      commissionAmount,
+      platformFee,
+      businessRevenue
+    })
 
-        console.log('Financial breakdown:', {
-          totalAmount,
-          commissionAmount,
-          platformFee,
-          businessRevenue
+    // Add commission to affiliate wallet
+    if (existingSale.referral_links?.affiliate_id && commissionAmount > 0) {
+      try {
+        const { error: affiliateWalletError } = await supabase.rpc('add_to_wallet', {
+          user_id: existingSale.referral_links.affiliate_id,
+          amount: commissionAmount,
+          sale_id: existingSale.id,
+          transaction_type: 'commission',
+          description: `Commission from sale of ${existingSale.products?.name || 'product'}`
         })
 
-        // Add commission to affiliate wallet
-        if (sale.referral_links?.affiliate_id && commissionAmount > 0) {
-          try {
-            const { error: affiliateWalletError } = await supabase.rpc('add_to_wallet', {
-              user_id: sale.referral_links.affiliate_id,
-              amount: commissionAmount,
-              sale_id: sale.id,
-              transaction_type: 'commission',
-              description: `Commission from sale #${sale.id}`
-            })
+        if (affiliateWalletError) {
+          console.error('Error adding commission to affiliate wallet:', affiliateWalletError)
+        } else {
+          console.log('Commission added to affiliate wallet successfully')
+        }
+      } catch (error) {
+        console.error('Error calling add_to_wallet for affiliate:', error)
+      }
+    }
 
-            if (affiliateWalletError) {
-              console.error('Error adding commission to affiliate wallet:', affiliateWalletError)
-            } else {
-              console.log('Commission added to affiliate wallet successfully')
-            }
-          } catch (error) {
-            console.error('Error calling add_to_wallet for affiliate:', error)
+    // Add business revenue to business owner wallet
+    if (existingSale.products?.business_id && businessRevenue > 0) {
+      try {
+        const { error: businessWalletError } = await supabase.rpc('add_to_wallet', {
+          user_id: existingSale.products.business_id,
+          amount: businessRevenue,
+          sale_id: existingSale.id,
+          transaction_type: 'business_revenue',
+          description: `Revenue from sale of ${existingSale.products?.name || 'product'}`
+        })
+
+        if (businessWalletError) {
+          console.error('Error adding revenue to business wallet:', businessWalletError)
+        } else {
+          console.log('Revenue added to business wallet successfully')
+        }
+      } catch (error) {
+        console.error('Error calling add_to_wallet for business:', error)
+      }
+    }
+
+    // Update referral link conversions
+    if (existingSale.referral_link_id) {
+      try {
+        const { data: currentLink, error: fetchError } = await supabase
+          .from('referral_links')
+          .select('conversions')
+          .eq('id', existingSale.referral_link_id)
+          .single()
+
+        if (!fetchError && currentLink) {
+          const { error: conversionError } = await supabase
+            .from('referral_links')
+            .update({ 
+              conversions: (currentLink.conversions || 0) + 1
+            })
+            .eq('id', existingSale.referral_link_id)
+
+          if (conversionError) {
+            console.error('Error updating conversion count:', conversionError)
+          } else {
+            console.log('Referral link conversions updated')
           }
         }
-
-        // Add business revenue to business owner wallet
-        if (sale.products?.business_id && businessRevenue > 0) {
-          try {
-            const { error: businessWalletError } = await supabase.rpc('add_to_wallet', {
-              user_id: sale.products.business_id,
-              amount: businessRevenue,
-              sale_id: sale.id,
-              transaction_type: 'business_revenue',
-              description: `Revenue from sale #${sale.id}`
-            })
-
-            if (businessWalletError) {
-              console.error('Error adding revenue to business wallet:', businessWalletError)
-            } else {
-              console.log('Revenue added to business wallet successfully')
-            }
-          } catch (error) {
-            console.error('Error calling add_to_wallet for business:', error)
-          }
-        }
+      } catch (error) {
+        console.error('Error updating referral link conversions:', error)
       }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        transaction,
-        payment_data: paymentData
+        sale_id: existingSale.id,
+        payment_data: paymentData,
+        financial_breakdown: {
+          totalAmount,
+          commissionAmount,
+          platformFee,
+          businessRevenue
+        }
       }),
       { 
         status: 200,
