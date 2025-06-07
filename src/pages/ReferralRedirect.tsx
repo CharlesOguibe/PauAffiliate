@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -7,10 +8,8 @@ import Button from "@/components/ui/custom/Button";
 import GlassCard from "@/components/ui/custom/GlassCard";
 import NairaIcon from "@/components/ui/icons/NairaIcon";
 import { createPendingSale } from "@/utils/sales";
-import {
-  initializeFlutterwavePayment,
-  verifyFlutterwavePayment,
-} from "@/services/flutterwave";
+import { initializeFlutterwavePayment } from "@/services/flutterwave";
+import { manuallyVerifyAndProcessPayment } from "@/utils/paymentVerification";
 import { useToast } from "@/hooks/use-toast";
 
 const ReferralRedirect = () => {
@@ -92,6 +91,8 @@ const ReferralRedirect = () => {
         return;
       }
 
+      console.log('Starting purchase process...');
+
       // Create pending sale
       const { sale, txRef } = await createPendingSale({
         productId: referralData.products.id,
@@ -100,7 +101,7 @@ const ReferralRedirect = () => {
         customerName,
       });
 
-      console.log("Pending sale created:", sale);
+      console.log("Pending sale created:", sale, "txRef:", txRef);
 
       // Initialize Flutterwave payment
       const paymentResult = await initializeFlutterwavePayment({
@@ -117,20 +118,23 @@ const ReferralRedirect = () => {
         },
       });
 
-      console.log("Payment result:", paymentResult);
+      console.log("Payment completed:", paymentResult);
 
-      // Verify payment
-      const verification = await verifyFlutterwavePayment(
-        paymentResult.transaction_id,
-        txRef
-      );
+      // Manually verify and process the payment
+      console.log('Manually verifying payment...');
+      const verification = await manuallyVerifyAndProcessPayment({
+        transactionId: paymentResult.transaction_id,
+        txRef: txRef
+      });
 
       if (verification.success) {
         toast({
           title: "Payment Successful!",
-          description: "Your purchase has been completed successfully.",
+          description: "Your purchase has been completed and wallets have been updated.",
           variant: "default",
         });
+
+        console.log('Payment verified successfully, financial breakdown:', verification.financial_breakdown);
 
         // Clear referral data after successful purchase
         localStorage.removeItem("referral_code");

@@ -1,3 +1,4 @@
+
 interface FlutterwavePaymentData {
   amount: number;
   currency: string;
@@ -57,15 +58,15 @@ export const initializeFlutterwavePayment = (
         logo: paymentData.customizations?.logo || "",
       },
       callback: function (data: FlutterwavePaymentResult) {
-        console.log("Flutterwave callback:", data);
+        console.log("Flutterwave callback received:", data);
         if (data.status === "successful") {
           resolve(data);
         } else {
-          reject(new Error("Payment failed"));
+          reject(new Error(`Payment failed with status: ${data.status}`));
         }
       },
       onclose: function () {
-        console.log("Payment cancelled");
+        console.log("Payment modal closed by user");
         reject(new Error("Payment cancelled by user"));
       },
     };
@@ -78,32 +79,4 @@ export const initializeFlutterwavePayment = (
       reject(new Error("Flutterwave checkout not loaded"));
     }
   });
-};
-
-export const verifyFlutterwavePayment = async (
-  transactionId: string,
-  txRef: string
-) => {
-  try {
-    const response = await fetch("/functions/v1/verify-flutterwave-payment", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        transaction_id: transactionId,
-        tx_ref: txRef,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Payment verification failed");
-    }
-
-    const result = await response.json();
-    return result;
-  } catch (error) {
-    console.error("Error verifying payment:", error);
-    throw error;
-  }
 };
