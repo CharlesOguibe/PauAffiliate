@@ -8,7 +8,6 @@ interface FlutterwavePaymentData {
   };
   tx_ref: string;
   callback_url?: string;
-  return_url?: string;
   customizations?: {
     title?: string;
     description?: string;

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -120,32 +119,23 @@ const ReferralRedirect = () => {
 
       console.log("Payment completed:", paymentResult);
 
-      // Manually verify and process the payment
-      console.log('Manually verifying payment...');
-      const verification = await manuallyVerifyAndProcessPayment({
-        transactionId: paymentResult.transaction_id,
-        txRef: txRef
+      // Show success message - webhook will handle the rest
+      toast({
+        title: "Payment Successful!",
+        description: "Your purchase has been completed. Wallets will be updated automatically.",
+        variant: "default",
       });
 
-      if (verification.success) {
-        toast({
-          title: "Payment Successful!",
-          description: "Your purchase has been completed and wallets have been updated.",
-          variant: "default",
-        });
+      console.log('Payment completed successfully. Webhook will process the payment.');
 
-        console.log('Payment verified successfully, financial breakdown:', verification.financial_breakdown);
+      // Clear referral data after successful payment
+      localStorage.removeItem("referral_code");
+      localStorage.removeItem("referral_link_id");
+      localStorage.removeItem("affiliate_id");
 
-        // Clear referral data after successful purchase
-        localStorage.removeItem("referral_code");
-        localStorage.removeItem("referral_link_id");
-        localStorage.removeItem("affiliate_id");
+      // Redirect to success page
+      navigate("/");
 
-        // Redirect to a success page or homepage
-        navigate("/");
-      } else {
-        throw new Error("Payment verification failed");
-      }
     } catch (error) {
       console.error("Purchase error:", error);
       toast({
