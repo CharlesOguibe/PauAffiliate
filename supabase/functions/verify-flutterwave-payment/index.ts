@@ -114,16 +114,85 @@ serve(async (req) => {
     
     if (saleId) {
       // Update the sale record
-      const { error: saleError } = await supabase
+      const { data: sale, error: saleError } = await supabase
         .from('sales')
         .update({
           status: 'completed',
           transaction_reference: tx_ref
         })
         .eq('id', saleId)
+        .select(`
+          *,
+          products (
+            business_id,
+            commission_rate
+          ),
+          referral_links (
+            affiliate_id
+          )
+        `)
+        .single()
 
-      if (saleError) {
+      if (saleError || !sale) {
         console.error('Error updating sale:', saleError)
+      } else {
+        console.log('Sale updated successfully:', sale)
+        
+        // Calculate amounts
+        const totalAmount = sale.amount
+        const commissionAmount = sale.commission_amount
+        const platformFeeRate = 0.05 // 5% platform fee
+        const platformFee = totalAmount * platformFeeRate
+        const businessRevenue = totalAmount - commissionAmount - platformFee
+
+        console.log('Financial breakdown:', {
+          totalAmount,
+          commissionAmount,
+          platformFee,
+          businessRevenue
+        })
+
+        // Add commission to affiliate wallet
+        if (sale.referral_links?.affiliate_id && commissionAmount > 0) {
+          try {
+            const { error: affiliateWalletError } = await supabase.rpc('add_to_wallet', {
+              user_id: sale.referral_links.affiliate_id,
+              amount: commissionAmount,
+              sale_id: sale.id,
+              transaction_type: 'commission',
+              description: `Commission from sale #${sale.id}`
+            })
+
+            if (affiliateWalletError) {
+              console.error('Error adding commission to affiliate wallet:', affiliateWalletError)
+            } else {
+              console.log('Commission added to affiliate wallet successfully')
+            }
+          } catch (error) {
+            console.error('Error calling add_to_wallet for affiliate:', error)
+          }
+        }
+
+        // Add business revenue to business owner wallet
+        if (sale.products?.business_id && businessRevenue > 0) {
+          try {
+            const { error: businessWalletError } = await supabase.rpc('add_to_wallet', {
+              user_id: sale.products.business_id,
+              amount: businessRevenue,
+              sale_id: sale.id,
+              transaction_type: 'business_revenue',
+              description: `Revenue from sale #${sale.id}`
+            })
+
+            if (businessWalletError) {
+              console.error('Error adding revenue to business wallet:', businessWalletError)
+            } else {
+              console.log('Revenue added to business wallet successfully')
+            }
+          } catch (error) {
+            console.error('Error calling add_to_wallet for business:', error)
+          }
+        }
       }
     }
 
