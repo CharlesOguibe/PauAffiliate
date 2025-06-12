@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft, LogOut } from 'lucide-react';
+import { Package, ArrowLeft, LogOut, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -22,6 +22,7 @@ type Product = {
   created_at: string;
   business_name?: string;
   is_promoted?: boolean;
+  referral_link_id?: string;
 };
 
 const AffiliateBrowseProducts = () => {
@@ -29,6 +30,7 @@ const AffiliateBrowseProducts = () => {
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Redirect business users back to their dashboard
   React.useEffect(() => {
@@ -43,12 +45,12 @@ const AffiliateBrowseProducts = () => {
     queryFn: async () => {
       if (!user?.id) return [];
       
-      // Fetch all products with business profile information
+      // First fetch all products with business profiles
       const { data: productData, error: productError } = await supabase
         .from('products')
         .select(`
           *,
-          business_profiles!products_business_id_fkey (
+          business_profiles (
             name
           )
         `);
@@ -58,19 +60,20 @@ const AffiliateBrowseProducts = () => {
       // Then fetch existing referral links for this affiliate
       const { data: referralLinks, error: referralError } = await supabase
         .from('referral_links')
-        .select('product_id')
+        .select('id, product_id')
         .eq('affiliate_id', user.id);
       
       if (referralError) throw referralError;
       
-      // Map to set for O(1) lookups
-      const promotedProductIds = new Set(referralLinks?.map(link => link.product_id) || []);
+      // Create a map for O(1) lookups
+      const referralMap = new Map(referralLinks?.map(link => [link.product_id, link.id]) || []);
       
       // Transform the product data with business name and promotion status
       return (productData || []).map((product: any) => ({
         ...product,
         business_name: product.business_profiles?.name || 'Unknown Business',
-        is_promoted: promotedProductIds.has(product.id)
+        is_promoted: referralMap.has(product.id),
+        referral_link_id: referralMap.get(product.id)
       }));
     },
     enabled: !!user && user.role === 'affiliate'
@@ -130,6 +133,8 @@ const AffiliateBrowseProducts = () => {
         description: `Referral link created: ${window.location.origin}/r/${data.code}`,
         variant: "default",
       });
+      // Refetch the products to update the UI
+      queryClient.invalidateQueries({ queryKey: ['affiliate-products'] });
     },
     onError: (error) => {
       console.error('Error creating referral link:', error);
@@ -141,9 +146,46 @@ const AffiliateBrowseProducts = () => {
     }
   });
 
+  // Mutation for deleting a referral link
+  const deleteReferralLink = useMutation({
+    mutationFn: async (referralLinkId: string) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      const { error } = await supabase
+        .from('referral_links')
+        .delete()
+        .eq('id', referralLinkId)
+        .eq('affiliate_id', user.id); // Ensure user can only delete their own links
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success!",
+        description: "Referral link deleted successfully",
+        variant: "default",
+      });
+      // Refetch the products to update the UI
+      queryClient.invalidateQueries({ queryKey: ['affiliate-products'] });
+    },
+    onError: (error) => {
+      console.error('Error deleting referral link:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete referral link. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Handle "Promote" button click
   const handlePromote = (productId: string) => {
     createReferralLink.mutate(productId);
+  };
+
+  // Handle "Delete" button click
+  const handleDelete = (referralLinkId: string) => {
+    deleteReferralLink.mutate(referralLinkId);
   };
 
   const handleLogout = async () => {
@@ -315,16 +357,36 @@ const AffiliateBrowseProducts = () => {
                     </div>
                   </div>
                   
-                  <div>
-                    <Button
-                      variant={product.is_promoted ? "outline" : "primary"}
-                      size="sm"
-                      onClick={() => handlePromote(product.id)}
-                      disabled={createReferralLink.isPending}
-                      isLoading={createReferralLink.isPending}
-                    >
-                      {product.is_promoted ? "Already Promoting" : "Promote"}
-                    </Button>
+                  <div className="flex items-center space-x-2">
+                    {product.is_promoted ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled
+                        >
+                          Already Promoting
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(product.referral_link_id!)}
+                          disabled={deleteReferralLink.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handlePromote(product.id)}
+                        disabled={createReferralLink.isPending}
+                        isLoading={createReferralLink.isPending}
+                      >
+                        Promote
+                      </Button>
+                    )}
                   </div>
                 </div>
                 
