@@ -1,14 +1,14 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, Tag, Users } from "lucide-react";
+import { ShoppingCart, Package, Users } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Button from "@/components/ui/custom/Button";
 import GlassCard from "@/components/ui/custom/GlassCard";
 import NairaIcon from "@/components/ui/icons/NairaIcon";
 import { createPendingSale } from "@/utils/sales";
 import { initializeFlutterwavePayment } from "@/services/flutterwave";
-import { manuallyVerifyAndProcessPayment } from "@/utils/paymentVerification";
 import { useToast } from "@/hooks/use-toast";
 
 const ReferralRedirect = () => {
@@ -189,7 +189,6 @@ const ReferralRedirect = () => {
   }
 
   const product = referralData.products;
-  const commissionAmount = product.price * (product.commission_rate / 100);
 
   return (
     <div className="min-h-screen bg-secondary/50">
@@ -247,25 +246,6 @@ const ReferralRedirect = () => {
                         ₦{product.price.toFixed(2)}
                       </p>
                     </div>
-                  </div>
-
-                  <div className="flex items-center p-4 bg-green-50 rounded-lg">
-                    <Tag className="h-5 w-5 text-green-600 mr-3" />
-                    <div>
-                      <p className="text-sm text-green-600">Commission Rate</p>
-                      <p className="text-lg font-medium text-green-700">
-                        {product.commission_rate}%
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <p className="text-sm text-blue-600 mb-1">
-                      Affiliate Earnings from this sale
-                    </p>
-                    <p className="text-lg font-bold text-blue-700">
-                      ₦{commissionAmount.toFixed(2)}
-                    </p>
                   </div>
                 </div>
 

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -11,7 +10,9 @@ import {
   Plus,
   ArrowRight,
   Copy,
-  CheckCircle
+  CheckCircle,
+  LogOut,
+  ArrowLeft
 } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
@@ -30,7 +31,7 @@ import {
 } from "@/components/ui/table";
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const isAffiliateUser = user?.role === 'affiliate';
   const isBusinessUser = user?.role === 'business';
@@ -101,6 +102,14 @@ const Dashboard = () => {
     });
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-secondary/50">
       <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
@@ -110,8 +119,16 @@ const Dashboard = () => {
           </Link>
           
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
-              {user?.email}
+            <Link to="/">
+              <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                Home
+              </Button>
+            </Link>
+            <span className="text-sm text-muted-foreground">{user?.email}</span>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-1" />
+              Logout
             </Button>
           </div>
         </div>
@@ -180,6 +197,7 @@ const Dashboard = () => {
               <Link to="/products">
                 <Button variant="outline" size="sm">
                   View All
+                  <ArrowRight className="h-4 w-4 ml-1" />
                 </Button>
               </Link>
             </div>
@@ -260,6 +278,7 @@ const Dashboard = () => {
                 <Link to="/affiliate/browse-products">
                   <Button variant="outline" size="sm">
                     Create First Link
+                    <ArrowRight className="h-4 w-4 ml-1" />
                   </Button>
                 </Link>
               </GlassCard>

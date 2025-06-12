@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft } from 'lucide-react';
+import { Package, ArrowLeft, LogOut } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
@@ -26,7 +26,7 @@ type Product = {
 
 const AffiliateBrowseProducts = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -37,16 +37,21 @@ const AffiliateBrowseProducts = () => {
     }
   }, [user?.role, navigate]);
 
-  // Fetch all products from all businesses
+  // Fetch all products from all businesses with business names
   const { data: products = [], isLoading, error } = useQuery({
     queryKey: ['affiliate-products'],
     queryFn: async () => {
       if (!user?.id) return [];
       
-      // First, fetch all products
+      // Fetch all products with business profile information
       const { data: productData, error: productError } = await supabase
         .from('products')
-        .select('*, business_profiles(name)');
+        .select(`
+          *,
+          business_profiles!products_business_id_fkey (
+            name
+          )
+        `);
       
       if (productError) throw productError;
       
@@ -64,7 +69,7 @@ const AffiliateBrowseProducts = () => {
       // Transform the product data with business name and promotion status
       return (productData || []).map((product: any) => ({
         ...product,
-        business_name: product.business_profiles?.name,
+        business_name: product.business_profiles?.name || 'Unknown Business',
         is_promoted: promotedProductIds.has(product.id)
       }));
     },
@@ -139,6 +144,14 @@ const AffiliateBrowseProducts = () => {
   // Handle "Promote" button click
   const handlePromote = (productId: string) => {
     createReferralLink.mutate(productId);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const filteredProducts = products.filter(product => 
@@ -230,8 +243,10 @@ const AffiliateBrowseProducts = () => {
                 Dashboard
               </Button>
             </Link>
-            <Button variant="ghost" size="sm">
-              {user.email}
+            <span className="text-sm text-muted-foreground">{user.email}</span>
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-1" />
+              Logout
             </Button>
           </div>
         </div>
@@ -239,7 +254,7 @@ const AffiliateBrowseProducts = () => {
 
       <main className="container mx-auto py-8 px-4">
         <div className="mb-6">
-          <Link to="/dashboard" className="inline-flex items-center text-sm mb-2">
+          <Link to="/dashboard" className="inline-flex items-center text-sm mb-2 hover:text-primary transition-colors">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
@@ -295,7 +310,7 @@ const AffiliateBrowseProducts = () => {
                         <span className="hidden sm:inline">•</span>
                         <span>{product.commission_rate}% commission</span>
                         <span className="hidden sm:inline">•</span>
-                        <span>By {product.business_name || "Unknown Business"}</span>
+                        <span>By {product.business_name}</span>
                       </div>
                     </div>
                   </div>
