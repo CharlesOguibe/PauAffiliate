@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, PenSquare, Trash } from 'lucide-react';
@@ -46,13 +47,25 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
   });
 
   const handleDeleteProduct = async (productId: string) => {
+    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+      return;
+    }
+
     try {
+      console.log('Attempting to delete product:', productId);
+      
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productId);
+        .eq('id', productId)
+        .eq('business_id', user?.id); // Ensure user can only delete their own products
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
+      
+      console.log('Product deleted successfully');
       
       toast({
         title: "Product deleted",
@@ -60,6 +73,7 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
         variant: "default",
       });
       
+      // Refresh the products list
       refetch();
     } catch (err) {
       console.error('Error deleting product:', err);
@@ -147,21 +161,23 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex gap-2 mr-2">
-                <Link to={`/products/${product.id}/edit`}>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <PenSquare className="h-4 w-4" />
+              {isBusinessOwner && (
+                <div className="flex gap-2 mr-2">
+                  <Link to={`/products/${product.id}/edit`}>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <PenSquare className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                  <Button 
+                    variant="destructive" 
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleDeleteProduct(product.id)}
+                  >
+                    <Trash className="h-4 w-4" />
                   </Button>
-                </Link>
-                <Button 
-                  variant="destructive" 
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => handleDeleteProduct(product.id)}
-                >
-                  <Trash className="h-4 w-4" />
-                </Button>
-              </div>
+                </div>
+              )}
               <Link to={`/products/${product.id}`}>
                 <Button variant="ghost" size="sm" className="text-xs h-8">
                   View Details
