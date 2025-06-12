@@ -47,33 +47,115 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
   });
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product? This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete this product? This will also delete all related sales and transactions. This action cannot be undone.')) {
       return;
     }
 
     try {
       console.log('Attempting to delete product:', productId);
       
-      const { error } = await supabase
+      // First, get all sales related to this product
+      const { data: sales, error: salesFetchError } = await supabase
+        .from('sales')
+        .select('id')
+        .eq('product_id', productId);
+      
+      if (salesFetchError) {
+        console.error('Error fetching sales:', salesFetchError);
+        throw salesFetchError;
+      }
+
+      console.log('Found sales to delete:', sales);
+
+      // Delete payment transactions first (they reference sales)
+      if (sales && sales.length > 0) {
+        const saleIds = sales.map(sale => sale.id);
+        
+        const { error: paymentTransactionsError } = await supabase
+          .from('payment_transactions')
+          .delete()
+          .in('sale_id', saleIds);
+        
+        if (paymentTransactionsError) {
+          console.error('Error deleting payment transactions:', paymentTransactionsError);
+          throw paymentTransactionsError;
+        }
+        
+        console.log('Deleted payment transactions');
+
+        // Delete wallet transactions that reference these sales
+        const { error: walletTransactionsError } = await supabase
+          .from('wallet_transactions')
+          .delete()
+          .in('sale_id', saleIds);
+        
+        if (walletTransactionsError) {
+          console.error('Error deleting wallet transactions:', walletTransactionsError);
+          throw walletTransactionsError;
+        }
+        
+        console.log('Deleted wallet transactions');
+
+        // Delete affiliate earnings
+        const { error: affiliateEarningsError } = await supabase
+          .from('affiliate_earnings')
+          .delete()
+          .in('sale_id', saleIds);
+        
+        if (affiliateEarningsError) {
+          console.error('Error deleting affiliate earnings:', affiliateEarningsError);
+          throw affiliateEarningsError;
+        }
+        
+        console.log('Deleted affiliate earnings');
+
+        // Delete sales
+        const { error: salesError } = await supabase
+          .from('sales')
+          .delete()
+          .eq('product_id', productId);
+        
+        if (salesError) {
+          console.error('Error deleting sales:', salesError);
+          throw salesError;
+        }
+        
+        console.log('Deleted sales');
+      }
+
+      // Delete referral links
+      const { error: referralLinksError } = await supabase
+        .from('referral_links')
+        .delete()
+        .eq('product_id', productId);
+      
+      if (referralLinksError) {
+        console.error('Error deleting referral links:', referralLinksError);
+        throw referralLinksError;
+      }
+      
+      console.log('Deleted referral links');
+
+      // Finally, delete the product
+      const { error: productError } = await supabase
         .from('products')
         .delete()
         .eq('id', productId)
-        .eq('business_id', user?.id); // Ensure user can only delete their own products
+        .eq('business_id', user?.id);
       
-      if (error) {
-        console.error('Supabase delete error:', error);
-        throw error;
+      if (productError) {
+        console.error('Error deleting product:', productError);
+        throw productError;
       }
       
       console.log('Product deleted successfully');
       
       toast({
         title: "Product deleted",
-        description: "The product has been successfully deleted.",
+        description: "The product and all related data have been successfully deleted.",
         variant: "default",
       });
       
-      // Refresh the products list
       refetch();
     } catch (err) {
       console.error('Error deleting product:', err);
