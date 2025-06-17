@@ -63,62 +63,64 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
     console.log('Starting delete process for product:', productId);
 
     try {
-      // Step 1: Delete all payment transactions for this product first
-      console.log('Step 1: Deleting payment transactions directly by product');
-      const { error: directPaymentError } = await supabase
-        .from('payment_transactions')
-        .delete()
-        .in('sale_id', 
-          supabase
-            .from('sales')
-            .select('id')
-            .eq('product_id', productId)
-        );
+      // Step 1: Get all sale IDs for this product first
+      console.log('Step 1: Getting sale IDs for product');
+      const { data: salesData, error: salesQueryError } = await supabase
+        .from('sales')
+        .select('id')
+        .eq('product_id', productId);
       
-      if (directPaymentError) {
-        console.error('Error deleting payment transactions:', directPaymentError);
-        throw new Error(`Failed to delete payment transactions: ${directPaymentError.message}`);
+      if (salesQueryError) {
+        console.error('Error getting sales:', salesQueryError);
+        throw new Error(`Failed to get sales: ${salesQueryError.message}`);
       }
-      console.log('Payment transactions deleted successfully');
-
-      // Step 2: Delete wallet transactions
-      console.log('Step 2: Deleting wallet transactions');
-      const { error: walletTransactionsError } = await supabase
-        .from('wallet_transactions')
-        .delete()
-        .in('sale_id', 
-          supabase
-            .from('sales')
-            .select('id')
-            .eq('product_id', productId)
-        );
       
-      if (walletTransactionsError) {
-        console.error('Error deleting wallet transactions:', walletTransactionsError);
-        throw new Error(`Failed to delete wallet transactions: ${walletTransactionsError.message}`);
-      }
-      console.log('Wallet transactions deleted successfully');
+      const saleIds = salesData?.map(sale => sale.id) || [];
+      console.log('Found sale IDs:', saleIds);
 
-      // Step 3: Delete affiliate earnings
-      console.log('Step 3: Deleting affiliate earnings');
-      const { error: affiliateEarningsError } = await supabase
-        .from('affiliate_earnings')
-        .delete()
-        .in('sale_id', 
-          supabase
-            .from('sales')
-            .select('id')
-            .eq('product_id', productId)
-        );
-      
-      if (affiliateEarningsError) {
-        console.error('Error deleting affiliate earnings:', affiliateEarningsError);
-        throw new Error(`Failed to delete affiliate earnings: ${affiliateEarningsError.message}`);
-      }
-      console.log('Affiliate earnings deleted successfully');
+      // Step 2: Delete payment transactions for these sales
+      if (saleIds.length > 0) {
+        console.log('Step 2: Deleting payment transactions');
+        const { error: paymentError } = await supabase
+          .from('payment_transactions')
+          .delete()
+          .in('sale_id', saleIds);
+        
+        if (paymentError) {
+          console.error('Error deleting payment transactions:', paymentError);
+          throw new Error(`Failed to delete payment transactions: ${paymentError.message}`);
+        }
+        console.log('Payment transactions deleted successfully');
 
-      // Step 4: Delete sales
-      console.log('Step 4: Deleting sales');
+        // Step 3: Delete wallet transactions
+        console.log('Step 3: Deleting wallet transactions');
+        const { error: walletTransactionsError } = await supabase
+          .from('wallet_transactions')
+          .delete()
+          .in('sale_id', saleIds);
+        
+        if (walletTransactionsError) {
+          console.error('Error deleting wallet transactions:', walletTransactionsError);
+          throw new Error(`Failed to delete wallet transactions: ${walletTransactionsError.message}`);
+        }
+        console.log('Wallet transactions deleted successfully');
+
+        // Step 4: Delete affiliate earnings
+        console.log('Step 4: Deleting affiliate earnings');
+        const { error: affiliateEarningsError } = await supabase
+          .from('affiliate_earnings')
+          .delete()
+          .in('sale_id', saleIds);
+        
+        if (affiliateEarningsError) {
+          console.error('Error deleting affiliate earnings:', affiliateEarningsError);
+          throw new Error(`Failed to delete affiliate earnings: ${affiliateEarningsError.message}`);
+        }
+        console.log('Affiliate earnings deleted successfully');
+      }
+
+      // Step 5: Delete sales
+      console.log('Step 5: Deleting sales');
       const { error: salesError } = await supabase
         .from('sales')
         .delete()
@@ -130,8 +132,8 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
       }
       console.log('Sales deleted successfully');
 
-      // Step 5: Delete referral links
-      console.log('Step 5: Deleting referral links');
+      // Step 6: Delete referral links
+      console.log('Step 6: Deleting referral links');
       const { error: referralLinksError } = await supabase
         .from('referral_links')
         .delete()
@@ -143,8 +145,8 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
       }
       console.log('Referral links deleted successfully');
 
-      // Step 6: Finally, delete the product
-      console.log('Step 6: Deleting product');
+      // Step 7: Finally, delete the product
+      console.log('Step 7: Deleting product');
       const { error: productError } = await supabase
         .from('products')
         .delete()
