@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, PenSquare, Trash } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -9,6 +8,16 @@ import GlassCard from '@/components/ui/custom/GlassCard';
 import { Product } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const fetchProducts = async () => {
   const { data: user } = await supabase.auth.getUser();
@@ -41,20 +50,22 @@ interface ProductListProps {
 const ProductList: React.FC<ProductListProps> = ({ limit }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [productToDelete, setProductToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
   const { data: products, isLoading, error, refetch } = useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
   });
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product? This will also delete all related sales and transactions. This action cannot be undone.')) {
-      return;
-    }
+    setIsDeleting(true);
+    console.log('Starting delete process for product:', productId);
+    console.log('Current user:', user?.id);
 
     try {
-      console.log('Attempting to delete product:', productId);
-      
       // First, get all sales related to this product
+      console.log('Step 1: Fetching sales for product');
       const { data: sales, error: salesFetchError } = await supabase
         .from('sales')
         .select('id')
@@ -62,15 +73,18 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
       
       if (salesFetchError) {
         console.error('Error fetching sales:', salesFetchError);
-        throw salesFetchError;
+        throw new Error(`Failed to fetch sales: ${salesFetchError.message}`);
       }
 
-      console.log('Found sales to delete:', sales);
+      console.log('Found sales to delete:', sales?.length || 0);
 
-      // Delete payment transactions first (they reference sales)
+      // Delete related records if there are sales
       if (sales && sales.length > 0) {
         const saleIds = sales.map(sale => sale.id);
+        console.log('Sale IDs to process:', saleIds);
         
+        // Delete payment transactions
+        console.log('Step 2: Deleting payment transactions');
         const { error: paymentTransactionsError } = await supabase
           .from('payment_transactions')
           .delete()
@@ -78,12 +92,12 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
         
         if (paymentTransactionsError) {
           console.error('Error deleting payment transactions:', paymentTransactionsError);
-          throw paymentTransactionsError;
+          throw new Error(`Failed to delete payment transactions: ${paymentTransactionsError.message}`);
         }
-        
-        console.log('Deleted payment transactions');
+        console.log('Payment transactions deleted successfully');
 
-        // Delete wallet transactions that reference these sales
+        // Delete wallet transactions
+        console.log('Step 3: Deleting wallet transactions');
         const { error: walletTransactionsError } = await supabase
           .from('wallet_transactions')
           .delete()
@@ -91,12 +105,12 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
         
         if (walletTransactionsError) {
           console.error('Error deleting wallet transactions:', walletTransactionsError);
-          throw walletTransactionsError;
+          throw new Error(`Failed to delete wallet transactions: ${walletTransactionsError.message}`);
         }
-        
-        console.log('Deleted wallet transactions');
+        console.log('Wallet transactions deleted successfully');
 
         // Delete affiliate earnings
+        console.log('Step 4: Deleting affiliate earnings');
         const { error: affiliateEarningsError } = await supabase
           .from('affiliate_earnings')
           .delete()
@@ -104,12 +118,12 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
         
         if (affiliateEarningsError) {
           console.error('Error deleting affiliate earnings:', affiliateEarningsError);
-          throw affiliateEarningsError;
+          throw new Error(`Failed to delete affiliate earnings: ${affiliateEarningsError.message}`);
         }
-        
-        console.log('Deleted affiliate earnings');
+        console.log('Affiliate earnings deleted successfully');
 
         // Delete sales
+        console.log('Step 5: Deleting sales');
         const { error: salesError } = await supabase
           .from('sales')
           .delete()
@@ -117,13 +131,13 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
         
         if (salesError) {
           console.error('Error deleting sales:', salesError);
-          throw salesError;
+          throw new Error(`Failed to delete sales: ${salesError.message}`);
         }
-        
-        console.log('Deleted sales');
+        console.log('Sales deleted successfully');
       }
 
       // Delete referral links
+      console.log('Step 6: Deleting referral links');
       const { error: referralLinksError } = await supabase
         .from('referral_links')
         .delete()
@@ -131,12 +145,12 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
       
       if (referralLinksError) {
         console.error('Error deleting referral links:', referralLinksError);
-        throw referralLinksError;
+        throw new Error(`Failed to delete referral links: ${referralLinksError.message}`);
       }
-      
-      console.log('Deleted referral links');
+      console.log('Referral links deleted successfully');
 
       // Finally, delete the product
+      console.log('Step 7: Deleting product');
       const { error: productError } = await supabase
         .from('products')
         .delete()
@@ -145,25 +159,28 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
       
       if (productError) {
         console.error('Error deleting product:', productError);
-        throw productError;
+        throw new Error(`Failed to delete product: ${productError.message}`);
       }
       
       console.log('Product deleted successfully');
       
       toast({
-        title: "Product deleted",
-        description: "The product and all related data have been successfully deleted.",
+        title: "Success!",
+        description: "Product and all related data deleted successfully",
         variant: "default",
       });
       
       refetch();
-    } catch (err) {
-      console.error('Error deleting product:', err);
+      setProductToDelete(null);
+    } catch (err: any) {
+      console.error('Delete operation failed:', err);
       toast({
-        title: "Error",
-        description: "Failed to delete the product. Please try again.",
+        title: "Delete Failed",
+        description: err.message || "Failed to delete the product. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -209,75 +226,99 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
   const isBusinessOwner = user?.role === 'business';
 
   return (
-    <GlassCard>
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-medium">Your Products</h3>
-        {isBusinessOwner && (
-          <Link to="/products/create">
-            <Button variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Add New Product
-            </Button>
-          </Link>
-        )}
-      </div>
-      
-      <div className="space-y-4">
-        {displayProducts.map((product) => (
-          <div key={product.id} className="flex items-center justify-between p-4 border border-border rounded-md hover:bg-accent/5 transition-colors">
-            <div className="flex items-center flex-1 space-x-6">
-              <div className="w-14 h-14 bg-muted rounded-md flex items-center justify-center">
-                {product.imageUrl ? (
-                  <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-md" />
-                ) : (
-                  <Package className="h-6 w-6" />
-                )}
-              </div>
-              <div className="flex-1">
-                <p className="font-medium mb-1">{product.name}</p>
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <span>₦{product.price.toFixed(2)}</span>
-                  <span className="mx-2">|</span>
-                  <span>{product.commissionRate}% commission</span>
+    <>
+      <GlassCard>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-medium">Your Products</h3>
+          {isBusinessOwner && (
+            <Link to="/products/create">
+              <Button variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Product
+              </Button>
+            </Link>
+          )}
+        </div>
+        
+        <div className="space-y-4">
+          {displayProducts.map((product) => (
+            <div key={product.id} className="flex items-center justify-between p-4 border border-border rounded-md hover:bg-accent/5 transition-colors">
+              <div className="flex items-center flex-1 space-x-6">
+                <div className="w-14 h-14 bg-muted rounded-md flex items-center justify-center">
+                  {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover rounded-md" />
+                  ) : (
+                    <Package className="h-6 w-6" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium mb-1">{product.name}</p>
+                  <div className="flex items-center text-sm text-muted-foreground">
+                    <span>₦{product.price.toFixed(2)}</span>
+                    <span className="mx-2">|</span>
+                    <span>{product.commissionRate}% commission</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isBusinessOwner && (
-                <div className="flex gap-2 mr-2">
-                  <Link to={`/products/${product.id}/edit`}>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                      <PenSquare className="h-4 w-4" />
+              <div className="flex items-center gap-2">
+                {isBusinessOwner && (
+                  <div className="flex gap-2 mr-2">
+                    <Link to={`/products/${product.id}/edit`}>
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                        <PenSquare className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setProductToDelete(product.id)}
+                      disabled={isDeleting}
+                    >
+                      <Trash className="h-4 w-4" />
                     </Button>
-                  </Link>
-                  <Button 
-                    variant="destructive" 
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    onClick={() => handleDeleteProduct(product.id)}
-                  >
-                    <Trash className="h-4 w-4" />
+                  </div>
+                )}
+                <Link to={`/products/${product.id}`}>
+                  <Button variant="ghost" size="sm" className="text-xs h-8">
+                    View Details
                   </Button>
-                </div>
-              )}
-              <Link to={`/products/${product.id}`}>
-                <Button variant="ghost" size="sm" className="text-xs h-8">
-                  View Details
-                </Button>
-              </Link>
+                </Link>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        {limit && products.length > limit && (
-          <Link to="/products">
-            <Button variant="outline" size="sm" className="w-full mt-2">
-              View All Products ({products.length})
-            </Button>
-          </Link>
-        )}
-      </div>
-    </GlassCard>
+          {limit && products.length > limit && (
+            <Link to="/products">
+              <Button variant="outline" size="sm" className="w-full mt-2">
+                View All Products ({products.length})
+              </Button>
+            </Link>
+          )}
+        </div>
+      </GlassCard>
+
+      <AlertDialog open={!!productToDelete} onOpenChange={() => setProductToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Product</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this product? This will permanently delete the product and all related data including sales, transactions, and referral links. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => productToDelete && handleDeleteProduct(productToDelete)}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Deleting..." : "Delete Product"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
