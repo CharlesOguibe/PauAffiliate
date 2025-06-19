@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, Users } from "lucide-react";
+import { ShoppingCart, Package, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Button from "@/components/ui/custom/Button";
 import GlassCard from "@/components/ui/custom/GlassCard";
@@ -177,12 +177,21 @@ const ReferralRedirect = () => {
           <p className="text-sm text-gray-500 mb-4">
             Referral Code: <span className="font-mono font-bold">{code}</span>
           </p>
-          <button
-            onClick={() => navigate("/")}
-            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
-          >
-            Go to Homepage
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => navigate("/")}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors w-full"
+            >
+              Go to Homepage
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors w-full flex items-center justify-center"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -194,17 +203,22 @@ const ReferralRedirect = () => {
     <div className="min-h-screen bg-secondary/50">
       <div className="container mx-auto py-8 px-4">
         <div className="max-w-4xl mx-auto">
-          <div className="mb-6 text-center">
-            <div className="inline-flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Users className="h-4 w-4 mr-2" />
-              Referred Product
+          <div className="mb-6">
+            <button
+              onClick={() => navigate(-1)}
+              className="inline-flex items-center text-sm mb-4 hover:text-primary transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back
+            </button>
+            <div className="text-center">
+              <h1 className="text-3xl font-bold text-gray-900">
+                {product.name}
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Special product recommendation
+              </p>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              Special Offer for You!
-            </h1>
-            <p className="text-gray-600 mt-2">
-              You've been referred to this amazing product
-            </p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -225,7 +239,7 @@ const ReferralRedirect = () => {
               )}
             </div>
 
-            {/* Product Details */}
+            {/* Product Details - COMMISSION RATE REMOVED */}
             <div>
               <GlassCard>
                 <div className="mb-6">
@@ -259,11 +273,6 @@ const ReferralRedirect = () => {
                   <ShoppingCart className="h-5 w-5 mr-2" />
                   Purchase Now - ₦{product.price.toFixed(2)}
                 </Button>
-
-                <p className="text-xs text-gray-500 mt-4 text-center">
-                  Referral Code:{" "}
-                  <span className="font-mono font-bold">{code}</span>
-                </p>
               </GlassCard>
             </div>
           </div>

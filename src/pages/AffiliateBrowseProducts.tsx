@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft, LogOut, Trash2 } from 'lucide-react';
+import { Package, ArrowLeft, LogOut, Trash2, ArrowRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
@@ -282,6 +282,7 @@ const AffiliateBrowseProducts = () => {
           <div className="flex items-center space-x-4">
             <Link to="/dashboard">
               <Button variant="ghost" size="sm">
+                <ArrowLeft className="h-4 w-4 mr-1" />
                 Dashboard
               </Button>
             </Link>
@@ -320,11 +321,17 @@ const AffiliateBrowseProducts = () => {
           <GlassCard className="p-6 text-center">
             <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-medium mb-2">No Products Found</h3>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground mb-4">
               {searchTerm 
                 ? "No products match your search. Try different keywords."
                 : "There are no products available for promotion yet."}
             </p>
+            <Link to="/dashboard">
+              <Button variant="outline">
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </Link>
           </GlassCard>
         ) : (
           <div className="space-y-4">
@@ -395,6 +402,15 @@ const AffiliateBrowseProducts = () => {
                 </p>
               </GlassCard>
             ))}
+            
+            <div className="flex justify-center mt-8">
+              <Link to="/dashboard">
+                <Button variant="outline">
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Continue to Dashboard
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </main>
