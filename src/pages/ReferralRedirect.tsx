@@ -38,38 +38,42 @@ const ReferralRedirect = () => {
       
       console.log("Sample referral links in database:", allLinks, debugError);
 
-      // Search for the referral link with case-insensitive comparison
-      const { data: referralLinks, error: referralError } = await supabase
+      // Try exact match first
+      const { data: exactMatch, error: exactError } = await supabase
         .from("referral_links")
         .select("*")
-        .ilike("code", code);
+        .eq("code", code)
+        .maybeSingle();
 
-      console.log("Referral link search result:", referralLinks, referralError);
+      console.log("Exact match attempt:", exactMatch, exactError);
 
-      if (referralError) {
-        console.error("Error fetching referral link:", referralError);
-        throw new Error(`Database error: ${referralError.message}`);
-      }
+      let referralLink = exactMatch;
 
-      if (!referralLinks || referralLinks.length === 0) {
-        console.log(`No referral link found for code: ${code}`);
-        // Let's also try an exact match in case case-sensitivity is the issue
-        const { data: exactMatch, error: exactError } = await supabase
+      // If no exact match, try case-insensitive search
+      if (!referralLink && !exactError) {
+        const { data: caseInsensitiveResults, error: caseError } = await supabase
           .from("referral_links")
           .select("*")
-          .eq("code", code)
+          .ilike("code", code)
+          .limit(1)
           .maybeSingle();
+
+        console.log("Case-insensitive search result:", caseInsensitiveResults, caseError);
         
-        console.log("Exact match attempt:", exactMatch, exactError);
-        
-        if (!exactMatch) {
-          throw new Error("Referral code not found");
+        if (!caseError) {
+          referralLink = caseInsensitiveResults;
         }
-        
-        referralLinks.push(exactMatch);
       }
 
-      const referralLink = referralLinks[0];
+      if (exactError) {
+        console.error("Error fetching referral link:", exactError);
+        throw new Error(`Database error: ${exactError.message}`);
+      }
+
+      if (!referralLink) {
+        console.log(`No referral link found for code: ${code}`);
+        throw new Error("Referral code not found");
+      }
 
       // Get the product details
       const { data: product, error: productError } = await supabase
