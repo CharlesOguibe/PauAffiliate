@@ -21,6 +21,9 @@ interface ReferralLinksTableProps {
 }
 
 const ReferralLinksTable = ({ referralLinks, copiedLinkId, onCopyToClipboard }: ReferralLinksTableProps) => {
+  console.log('ReferralLinksTable - received referralLinks:', referralLinks);
+  console.log('ReferralLinksTable - referralLinks length:', referralLinks?.length || 0);
+
   if (referralLinks.length === 0) {
     return (
       <GlassCard className="p-6">
@@ -33,6 +36,12 @@ const ReferralLinksTable = ({ referralLinks, copiedLinkId, onCopyToClipboard }: 
         <p className="text-muted-foreground mb-4">
           You haven't created any referral links yet. Browse products to start promoting.
         </p>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+          <p className="text-sm text-yellow-800">
+            <strong>Debug Info:</strong> No referral links found in the database. 
+            Check the browser console for detailed debugging information.
+          </p>
+        </div>
         <Link to="/affiliate/browse-products">
           <Button variant="outline" size="sm">
             Create First Link

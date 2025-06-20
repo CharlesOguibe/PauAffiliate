@@ -22,6 +22,15 @@ export const useDashboardData = (userId: string | undefined, isAffiliateUser: bo
     
     setLoading(true);
     try {
+      console.log('Fetching referral links for user:', userId);
+      
+      // First, let's check if there are ANY referral links in the system
+      const { data: allLinks, error: allLinksError } = await supabase
+        .from('referral_links')
+        .select('*');
+      
+      console.log('All referral links in system:', allLinks?.length || 0, allLinksError);
+      
       const { data, error } = await supabase
         .from('referral_links')
         .select(`
@@ -39,9 +48,12 @@ export const useDashboardData = (userId: string | undefined, isAffiliateUser: bo
         `)
         .eq('affiliate_id', userId);
 
+      console.log('User referral links query result:', data, error);
+
       if (error) {
         console.error('Error fetching referral links:', error);
       } else {
+        console.log('Found referral links for user:', data?.length || 0);
         setReferralLinks(data.map(item => ({
           id: item.id,
           productId: item.product_id,
