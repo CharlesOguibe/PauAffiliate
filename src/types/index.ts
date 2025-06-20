@@ -65,3 +65,25 @@ export interface Withdrawal {
   status: 'pending' | 'completed' | 'cancelled';
   createdAt: Date;
 }
+
+export interface WithdrawalRequest {
+  id: string;
+  affiliateId: string;
+  amount: number;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  createdAt: Date;
+  processedAt?: Date;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'sale' | 'commission' | 'withdrawal' | 'info';
+  read: boolean;
+  createdAt: Date;
+}

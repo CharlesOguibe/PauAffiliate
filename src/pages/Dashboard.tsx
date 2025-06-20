@@ -21,6 +21,10 @@ import ProductList from '@/components/products/ProductList';
 import { supabase } from '@/integrations/supabase/client';
 import { ReferralLink } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import EarningsOverview from '@/components/earnings/EarningsOverview';
+import TransactionHistory from '@/components/earnings/TransactionHistory';
+import WithdrawalRequest from '@/components/withdrawals/WithdrawalRequest';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import {
   Table,
   TableBody,
@@ -38,10 +42,22 @@ const Dashboard = () => {
   const [referralLinks, setReferralLinks] = useState<Array<ReferralLink & { product: { name: string; price: number; commissionRate: number } }>>([]);
   const [loading, setLoading] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [earnings, setEarnings] = useState({
+    total: 0,
+    pending: 0,
+    available: 0,
+    thisMonth: 0
+  });
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [showWithdrawal, setShowWithdrawal] = useState(false);
 
   useEffect(() => {
     if (isAffiliateUser && user?.id) {
       fetchReferralLinks();
+      fetchEarnings();
+      fetchTransactions();
+      fetchNotifications();
     }
   }, [isAffiliateUser, user?.id]);
 
@@ -102,6 +118,115 @@ const Dashboard = () => {
     });
   };
 
+  const fetchEarnings = async () => {
+    try {
+      // Fetch wallet balance
+      const { data: wallet } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user?.id)
+        .single();
+
+      // Fetch affiliate earnings
+      const { data: affiliateEarnings } = await supabase
+        .from('affiliate_earnings')
+        .select('amount, status')
+        .eq('affiliate_id', user?.id);
+
+      if (affiliateEarnings) {
+        const total = affiliateEarnings.reduce((sum, earning) => sum + earning.amount, 0);
+        const pending = affiliateEarnings
+          .filter(e => e.status === 'pending')
+          .reduce((sum, earning) => sum + earning.amount, 0);
+        
+        setEarnings({
+          total,
+          pending,
+          available: wallet?.balance || 0,
+          thisMonth: total // Simplified - could add date filtering
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching earnings:', error);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    try {
+      const { data: walletTransactions } = await supabase
+        .from('wallet_transactions')
+        .select(`
+          id,
+          amount,
+          transaction_type,
+          description,
+          created_at
+        `)
+        .eq('wallet_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (walletTransactions) {
+        setTransactions(walletTransactions.map(tx => ({
+          id: tx.id,
+          type: tx.transaction_type === 'commission' ? 'commission' : 'withdrawal',
+          amount: Math.abs(tx.amount),
+          description: tx.description || 'Transaction',
+          date: new Date(tx.created_at),
+          status: 'completed'
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    }
+  };
+
+  const fetchNotifications = async () => {
+    // Mock notifications for now - in real app, fetch from database
+    setNotifications([
+      {
+        id: '1',
+        title: 'New Sale!',
+        message: 'You earned ₦500 commission from a referral sale.',
+        type: 'commission',
+        read: false,
+        createdAt: new Date()
+      }
+    ]);
+  };
+
+  const handleWithdrawalRequest = async (amount: number, bankDetails: any) => {
+    // Create withdrawal request in database
+    const { error } = await supabase
+      .from('withdrawal_requests')
+      .insert({
+        affiliate_id: user?.id,
+        amount,
+        bank_name: bankDetails.bankName,
+        account_number: bankDetails.accountNumber,
+        account_name: bankDetails.accountName,
+        status: 'pending'
+      });
+
+    if (error) throw error;
+
+    // Update available balance
+    setEarnings(prev => ({
+      ...prev,
+      available: prev.available - amount
+    }));
+  };
+
+  const handleMarkNotificationAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => 
+      n.id === id ? { ...n, read: true } : n
+    ));
+  };
+
+  const handleClearNotifications = () => {
+    setNotifications([]);
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -119,6 +244,11 @@ const Dashboard = () => {
           </Link>
           
           <div className="flex items-center space-x-4">
+            <NotificationBell 
+              notifications={notifications}
+              onMarkAsRead={handleMarkNotificationAsRead}
+              onClearAll={handleClearNotifications}
+            />
             <Link to="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-1" />
@@ -142,77 +272,95 @@ const Dashboard = () => {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <GlassCard hover>
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary/10 p-3 rounded-full">
-                <Package className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">
-                  {isAffiliateUser ? 'Products Promoting' : 'Your Products'}
-                </div>
-                <div className="text-2xl font-bold">
-                  {isAffiliateUser ? referralLinks.length : '0'}
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-
-          <GlassCard hover>
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary/10 p-3 rounded-full">
-                <LinkIcon className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">
-                  {isAffiliateUser ? 'Referral Links' : 'Total Referrals'}
-                </div>
-                <div className="text-2xl font-bold">
-                  {isAffiliateUser ? referralLinks.length : '0'}
-                </div>
-              </div>
-            </div>
-          </GlassCard>
-
-          <GlassCard hover>
-            <div className="flex items-center space-x-4">
-              <div className="bg-primary/10 p-3 rounded-full">
-                <DollarSign className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <div className="text-sm font-medium text-muted-foreground">
-                  {isAffiliateUser ? 'Earnings' : 'Total Sales'}
-                </div>
-                <div className="text-2xl font-bold">₦0.00</div>
-              </div>
-            </div>
-          </GlassCard>
-        </div>
-
-        {isBusinessUser && (
+        {isAffiliateUser && (
           <>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-medium">Recent Products</h2>
-              <Link to="/products">
-                <Button variant="outline" size="sm">
-                  View All
-                  <ArrowRight className="h-4 w-4 ml-1" />
-                </Button>
-              </Link>
-            </div>
-            
-            <ProductList limit={3} />
-            
-            <div className="mt-8">
-              <Link to="/products/create">
-                <Button variant="primary" className="w-full sm:w-auto">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add New Product
-                </Button>
-              </Link>
+            <EarningsOverview 
+              totalEarnings={earnings.total}
+              pendingEarnings={earnings.pending}
+              availableBalance={earnings.available}
+              thisMonthEarnings={earnings.thisMonth}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+              <TransactionHistory transactions={transactions} />
+              {!showWithdrawal ? (
+                <GlassCard>
+                  <div className="p-6 text-center">
+                    <h3 className="text-lg font-semibold mb-4">Ready to withdraw?</h3>
+                    <p className="text-muted-foreground mb-6">
+                      You have ₦{earnings.available.toFixed(2)} available for withdrawal
+                    </p>
+                    <Button 
+                      onClick={() => setShowWithdrawal(true)}
+                      disabled={earnings.available < 1000}
+                    >
+                      Request Withdrawal
+                    </Button>
+                    {earnings.available < 1000 && (
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Minimum withdrawal amount is ₦1,000
+                      </p>
+                    )}
+                  </div>
+                </GlassCard>
+              ) : (
+                <WithdrawalRequest 
+                  availableBalance={earnings.available}
+                  onWithdrawalRequest={handleWithdrawalRequest}
+                />
+              )}
             </div>
           </>
+        )}
+
+        {isBusinessUser && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <GlassCard hover>
+              <div className="flex items-center space-x-4">
+                <div className="bg-primary/10 p-3 rounded-full">
+                  <Package className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    {isAffiliateUser ? 'Products Promoting' : 'Your Products'}
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {isAffiliateUser ? referralLinks.length : '0'}
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard hover>
+              <div className="flex items-center space-x-4">
+                <div className="bg-primary/10 p-3 rounded-full">
+                  <LinkIcon className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    {isAffiliateUser ? 'Referral Links' : 'Total Referrals'}
+                  </div>
+                  <div className="text-2xl font-bold">
+                    {isAffiliateUser ? referralLinks.length : '0'}
+                  </div>
+                </div>
+              </div>
+            </GlassCard>
+
+            <GlassCard hover>
+              <div className="flex items-center space-x-4">
+                <div className="bg-primary/10 p-3 rounded-full">
+                  <DollarSign className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground">
+                    {isAffiliateUser ? 'Earnings' : 'Total Sales'}
+                  </div>
+                  <div className="text-2xl font-bold">₦0.00</div>
+                </div>
+              </div>
+            </GlassCard>
+          </div>
         )}
 
         {isAffiliateUser && (
