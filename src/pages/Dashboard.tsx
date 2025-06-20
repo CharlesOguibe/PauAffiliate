@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -23,7 +24,6 @@ import { ReferralLink } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import EarningsOverview from '@/components/earnings/EarningsOverview';
 import TransactionHistory from '@/components/earnings/TransactionHistory';
-import WithdrawalRequest from '@/components/withdrawals/WithdrawalRequest';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import {
   Table,
@@ -50,7 +50,6 @@ const Dashboard = () => {
   });
   const [transactions, setTransactions] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
-  const [showWithdrawal, setShowWithdrawal] = useState(false);
 
   useEffect(() => {
     if (isAffiliateUser && user?.id) {
@@ -195,28 +194,6 @@ const Dashboard = () => {
     ]);
   };
 
-  const handleWithdrawalRequest = async (amount: number, bankDetails: any) => {
-    // Create withdrawal request in database
-    const { error } = await supabase
-      .from('withdrawal_requests')
-      .insert({
-        affiliate_id: user?.id,
-        amount,
-        bank_name: bankDetails.bankName,
-        account_number: bankDetails.accountNumber,
-        account_name: bankDetails.accountName,
-        status: 'pending'
-      });
-
-    if (error) throw error;
-
-    // Update available balance
-    setEarnings(prev => ({
-      ...prev,
-      available: prev.available - amount
-    }));
-  };
-
   const handleMarkNotificationAsRead = (id: string) => {
     setNotifications(prev => prev.map(n => 
       n.id === id ? { ...n, read: true } : n
@@ -283,32 +260,17 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <TransactionHistory transactions={transactions} />
-              {!showWithdrawal ? (
-                <GlassCard>
-                  <div className="p-6 text-center">
-                    <h3 className="text-lg font-semibold mb-4">Ready to withdraw?</h3>
-                    <p className="text-muted-foreground mb-6">
-                      You have ₦{earnings.available.toFixed(2)} available for withdrawal
-                    </p>
-                    <Button 
-                      onClick={() => setShowWithdrawal(true)}
-                      disabled={earnings.available < 1000}
-                    >
-                      Request Withdrawal
-                    </Button>
-                    {earnings.available < 1000 && (
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Minimum withdrawal amount is ₦1,000
-                      </p>
-                    )}
-                  </div>
-                </GlassCard>
-              ) : (
-                <WithdrawalRequest 
-                  availableBalance={earnings.available}
-                  onWithdrawalRequest={handleWithdrawalRequest}
-                />
-              )}
+              <GlassCard>
+                <div className="p-6 text-center">
+                  <h3 className="text-lg font-semibold mb-4">Withdrawal Information</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Available Balance: ₦{earnings.available.toFixed(2)}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    Withdrawal system will be available soon. Contact support for manual withdrawals.
+                  </p>
+                </div>
+              </GlassCard>
             </div>
           </>
         )}
