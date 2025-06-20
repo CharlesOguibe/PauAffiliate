@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
@@ -35,6 +34,7 @@ const Auth = () => {
   const [error, setError] = useState<string | null>(null);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
+  const [adminExists, setAdminExists] = useState(false);
 
   useEffect(() => {
     setActiveTab(location.pathname.includes('register') ? 'register' : 'login');
@@ -50,7 +50,29 @@ const Auth = () => {
       }
     };
 
+    // Check if admin user already exists
+    const checkAdminExists = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .limit(1);
+        
+        if (!error && data && data.length > 0) {
+          setAdminExists(true);
+        }
+      } catch (error) {
+        console.error('Error checking admin existence:', error);
+        // If there's an error checking, assume admin exists to be safe
+        setAdminExists(true);
+      }
+    };
+
     checkUser();
+    if (location.pathname.includes('register')) {
+      checkAdminExists();
+    }
   }, [location, queryRole, navigate]);
 
   const handleTabChange = (value: string) => {
@@ -83,7 +105,7 @@ const Auth = () => {
     e.preventDefault();
     
     if (!role) {
-      setError('Please select a role (Business, Affiliate, or Admin)');
+      setError('Please select a role (Business or Affiliate)');
       return;
     }
     
@@ -298,7 +320,7 @@ const Auth = () => {
                   {!role && (
                     <div className="space-y-2 mb-6">
                       <Label>I am a:</Label>
-                      <div className="grid grid-cols-1 gap-3">
+                      <div className="grid grid-cols-2 gap-4">
                         <Button
                           type="button"
                           variant={role === 'business' ? 'primary' : 'outline'}
@@ -315,14 +337,16 @@ const Auth = () => {
                         >
                           Affiliate
                         </Button>
-                        <Button
-                          type="button"
-                          variant={role === 'admin' ? 'primary' : 'outline'}
-                          className="w-full justify-center"
-                          onClick={() => setRole('admin')}
-                        >
-                          Admin
-                        </Button>
+                        {!adminExists && email === 'cjoguibe@gmail.com' && (
+                          <Button
+                            type="button"
+                            variant={role === 'admin' ? 'primary' : 'outline'}
+                            className="w-full justify-center col-span-2"
+                            onClick={() => setRole('admin')}
+                          >
+                            Admin (Special Access)
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}
