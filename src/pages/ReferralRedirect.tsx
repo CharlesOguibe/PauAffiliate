@@ -30,33 +30,54 @@ const ReferralRedirect = () => {
         throw new Error("No referral code provided");
       }
 
-      // Simplified query - just get the referral link and product
+      // First, get the referral link
       const { data: referralLink, error: referralError } = await supabase
         .from("referral_links")
-        .select(
-          `
-          *,
-          products (*)
-        `
-        )
+        .select("*")
         .eq("code", code)
         .single();
 
-      console.log("Query result:", referralLink, referralError);
+      console.log("Referral link query result:", referralLink, referralError);
 
-      if (referralError || !referralLink) {
-        console.log("Referral link not found for code:", code);
-        throw new Error("Invalid referral code");
+      if (referralError) {
+        console.error("Error fetching referral link:", referralError);
+        throw new Error(`Invalid referral code: ${referralError.message}`);
       }
 
-      console.log("Found referral link and product:", referralLink);
+      if (!referralLink) {
+        throw new Error("Referral link not found");
+      }
+
+      // Then get the product details
+      const { data: product, error: productError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", referralLink.product_id)
+        .single();
+
+      console.log("Product query result:", product, productError);
+
+      if (productError) {
+        console.error("Error fetching product:", productError);
+        throw new Error(`Product not found: ${productError.message}`);
+      }
+
+      if (!product) {
+        throw new Error("Product not found");
+      }
+
+      console.log("Found referral link and product:", { referralLink, product });
 
       // Update click count (don't fail if this doesn't work)
       try {
-        await supabase
+        const { error: updateError } = await supabase
           .from("referral_links")
           .update({ clicks: (referralLink.clicks || 0) + 1 })
           .eq("id", referralLink.id);
+
+        if (updateError) {
+          console.log("Could not update clicks:", updateError);
+        }
       } catch (updateError) {
         console.log("Could not update clicks, but continuing:", updateError);
       }
@@ -66,14 +87,24 @@ const ReferralRedirect = () => {
       localStorage.setItem("referral_link_id", referralLink.id);
       localStorage.setItem("affiliate_id", referralLink.affiliate_id);
 
-      return referralLink;
+      return {
+        ...referralLink,
+        products: product
+      };
     },
     enabled: !!code,
     retry: false,
   });
 
   const handlePurchase = async () => {
-    if (!referralData?.products) return;
+    if (!referralData?.products) {
+      toast({
+        title: "Error",
+        description: "Product information not available",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsPurchasing(true);
     try {
@@ -153,44 +184,52 @@ const ReferralRedirect = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-secondary/50">
         <div className="text-center">
-          <div className="h-8 w-8 mx-auto mb-4 rounded-full border-4 border-blue-500 border-t-transparent animate-spin"></div>
-          <p className="text-gray-600">Loading product...</p>
+          <div className="h-8 w-8 mx-auto mb-4 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <p className="text-muted-foreground">Loading product...</p>
         </div>
       </div>
     );
   }
 
   if (error || !referralData?.products) {
+    console.error("Referral redirect error:", error);
+    
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-secondary/50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <h1 className="text-2xl font-bold mb-2">
             Invalid Referral Link
           </h1>
-          <p className="text-gray-600 mb-4">
+          <p className="text-muted-foreground mb-4">
             This referral code is not valid or the product may no longer be
             available.
           </p>
-          <p className="text-sm text-gray-500 mb-4">
+          <p className="text-sm text-muted-foreground mb-4">
             Referral Code: <span className="font-mono font-bold">{code}</span>
           </p>
+          {error && (
+            <p className="text-sm text-red-600 mb-4">
+              Error: {error.message}
+            </p>
+          )}
           <div className="space-y-2">
-            <button
+            <Button
               onClick={() => navigate("/")}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors w-full"
+              className="w-full"
             >
               Go to Homepage
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => navigate(-1)}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition-colors w-full flex items-center justify-center"
+              className="w-full"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -212,10 +251,10 @@ const ReferralRedirect = () => {
               Back
             </button>
             <div className="text-center">
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-3xl font-bold">
                 {product.name}
               </h1>
-              <p className="text-gray-600 mt-2">
+              <p className="text-muted-foreground mt-2">
                 Special product recommendation
               </p>
             </div>
@@ -233,20 +272,20 @@ const ReferralRedirect = () => {
                   />
                 </GlassCard>
               ) : (
-                <GlassCard className="h-96 flex items-center justify-center bg-gray-100">
-                  <Package className="h-24 w-24 text-gray-400" />
+                <GlassCard className="h-96 flex items-center justify-center bg-muted/50">
+                  <Package className="h-24 w-24 text-muted-foreground" />
                 </GlassCard>
               )}
             </div>
 
-            {/* Product Details - COMMISSION RATE REMOVED */}
+            {/* Product Details */}
             <div>
               <GlassCard>
                 <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  <h2 className="text-2xl font-bold mb-2">
                     {product.name}
                   </h2>
-                  <p className="text-gray-600 whitespace-pre-line">
+                  <p className="text-muted-foreground whitespace-pre-line">
                     {product.description}
                   </p>
                 </div>
