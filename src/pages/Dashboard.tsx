@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -95,16 +96,30 @@ const Dashboard = () => {
 
   const fetchBusinessMetrics = async () => {
     try {
+      // First, fetch the product IDs for this business
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id')
+        .eq('business_id', user?.id);
+
+      if (productsError) {
+        console.error('Error fetching products for metrics:', productsError);
+        return;
+      }
+
+      const productIds = products?.map(p => p.id) || [];
+
+      if (productIds.length === 0) {
+        setTotalReferrals(0);
+        setTotalSales(0);
+        return;
+      }
+
       // Fetch total referrals count
       const { count: referralCount, error: referralError } = await supabase
         .from('referral_links')
         .select('*', { count: 'exact', head: true })
-        .in('product_id', 
-          supabase
-            .from('products')
-            .select('id')
-            .eq('business_id', user?.id)
-        );
+        .in('product_id', productIds);
 
       if (referralError) {
         console.error('Error fetching referral count:', referralError);
@@ -116,12 +131,7 @@ const Dashboard = () => {
       const { data: salesData, error: salesError } = await supabase
         .from('sales')
         .select('amount')
-        .in('product_id',
-          supabase
-            .from('products')
-            .select('id')
-            .eq('business_id', user?.id)
-        )
+        .in('product_id', productIds)
         .eq('status', 'completed');
 
       if (salesError) {
