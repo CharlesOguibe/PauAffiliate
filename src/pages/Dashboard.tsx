@@ -56,6 +56,8 @@ const Dashboard = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
   const [productCount, setProductCount] = useState(0);
+  const [totalReferrals, setTotalReferrals] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
@@ -67,6 +69,7 @@ const Dashboard = () => {
       }
       if (isBusinessUser) {
         fetchProductCount();
+        fetchBusinessMetrics();
       }
       fetchNotifications();
       setupRealtimeSubscriptions();
@@ -87,6 +90,48 @@ const Dashboard = () => {
       }
     } catch (error) {
       console.error('Error fetching product count:', error);
+    }
+  };
+
+  const fetchBusinessMetrics = async () => {
+    try {
+      // Fetch total referrals count
+      const { count: referralCount, error: referralError } = await supabase
+        .from('referral_links')
+        .select('*', { count: 'exact', head: true })
+        .in('product_id', 
+          supabase
+            .from('products')
+            .select('id')
+            .eq('business_id', user?.id)
+        );
+
+      if (referralError) {
+        console.error('Error fetching referral count:', referralError);
+      } else {
+        setTotalReferrals(referralCount || 0);
+      }
+
+      // Fetch total sales amount
+      const { data: salesData, error: salesError } = await supabase
+        .from('sales')
+        .select('amount')
+        .in('product_id',
+          supabase
+            .from('products')
+            .select('id')
+            .eq('business_id', user?.id)
+        )
+        .eq('status', 'completed');
+
+      if (salesError) {
+        console.error('Error fetching sales data:', salesError);
+      } else {
+        const totalAmount = salesData?.reduce((sum, sale) => sum + sale.amount, 0) || 0;
+        setTotalSales(totalAmount);
+      }
+    } catch (error) {
+      console.error('Error fetching business metrics:', error);
     }
   };
 
@@ -111,6 +156,9 @@ const Dashboard = () => {
 
     // Subscribe to product changes for business users
     let productsChannel;
+    let referralLinksChannel;
+    let salesChannel;
+    
     if (isBusinessUser) {
       productsChannel = supabase
         .channel('products')
@@ -128,12 +176,52 @@ const Dashboard = () => {
           }
         )
         .subscribe();
+
+      // Subscribe to referral links changes
+      referralLinksChannel = supabase
+        .channel('referral_links')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'referral_links'
+          },
+          (payload) => {
+            console.log('Referral link change:', payload);
+            fetchBusinessMetrics();
+          }
+        )
+        .subscribe();
+
+      // Subscribe to sales changes
+      salesChannel = supabase
+        .channel('sales')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'sales'
+          },
+          (payload) => {
+            console.log('Sale change:', payload);
+            fetchBusinessMetrics();
+          }
+        )
+        .subscribe();
     }
 
     return () => {
       supabase.removeChannel(notificationsChannel);
       if (productsChannel) {
         supabase.removeChannel(productsChannel);
+      }
+      if (referralLinksChannel) {
+        supabase.removeChannel(referralLinksChannel);
+      }
+      if (salesChannel) {
+        supabase.removeChannel(salesChannel);
       }
     };
   };
@@ -451,7 +539,7 @@ const Dashboard = () => {
                     <div className="text-sm font-medium text-muted-foreground">
                       Total Referrals
                     </div>
-                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-2xl font-bold">{totalReferrals}</div>
                   </div>
                 </div>
               </GlassCard>
@@ -465,7 +553,7 @@ const Dashboard = () => {
                     <div className="text-sm font-medium text-muted-foreground">
                       Total Sales
                     </div>
-                    <div className="text-2xl font-bold">₦0.00</div>
+                    <div className="text-2xl font-bold">₦{totalSales.toFixed(2)}</div>
                   </div>
                 </div>
               </GlassCard>
