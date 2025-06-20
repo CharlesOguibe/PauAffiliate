@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { BusinessProfile, WithdrawalRequest } from '@/types/dashboard';
 import {
   Table,
   TableBody,
@@ -13,31 +13,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-interface BusinessProfile {
-  id: string;
-  name: string;
-  description: string;
-  verified: boolean;
-  verification_requested_at: string | null;
-  verified_at: string | null;
-  created_at: string;
-}
-
-interface WithdrawalRequest {
-  id: string;
-  amount: number;
-  bank_name: string;
-  account_number: string;
-  account_name: string;
-  status: string;
-  created_at: string;
-  affiliate_id: string;
-  profiles: {
-    name: string;
-    email: string;
-  };
-}
 
 const AdminPanel = () => {
   const { toast } = useToast();
@@ -79,7 +54,25 @@ const AdminPanel = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setWithdrawalRequests(data || []);
+      
+      // Transform the data to match our interface
+      const transformedData: WithdrawalRequest[] = (data || []).map(req => ({
+        id: req.id,
+        amount: req.amount,
+        bank_name: req.bank_name,
+        account_number: req.account_number,
+        account_name: req.account_name,
+        status: req.status as 'pending' | 'approved' | 'rejected' | 'completed',
+        created_at: req.created_at,
+        processed_at: req.processed_at,
+        affiliate_id: req.affiliate_id,
+        profiles: {
+          name: req.profiles?.name || 'Unknown',
+          email: req.profiles?.email || 'Unknown'
+        }
+      }));
+      
+      setWithdrawalRequests(transformedData);
     } catch (error) {
       console.error('Error fetching withdrawal requests:', error);
     }

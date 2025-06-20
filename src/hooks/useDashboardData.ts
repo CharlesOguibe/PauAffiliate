@@ -143,14 +143,15 @@ export const useDashboardData = (userId: string | undefined, isAffiliateUser: bo
         .limit(20);
 
       if (data) {
-        setNotifications(data.map(n => ({
+        const transformedNotifications: DashboardNotification[] = data.map(n => ({
           id: n.id,
           title: n.title,
           message: n.message,
-          type: n.type,
+          type: n.type as 'sale' | 'commission' | 'withdrawal' | 'info',
           read: n.read,
           createdAt: new Date(n.created_at)
-        })));
+        }));
+        setNotifications(transformedNotifications);
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -168,10 +169,19 @@ export const useDashboardData = (userId: string | undefined, isAffiliateUser: bo
         .order('created_at', { ascending: false });
 
       if (data) {
-        setWithdrawalRequests(data.map(req => ({
-          ...req,
+        const transformedRequests: WithdrawalRequest[] = data.map(req => ({
+          id: req.id,
+          amount: req.amount,
+          bank_name: req.bank_name,
+          account_number: req.account_number,
+          account_name: req.account_name,
+          status: req.status as 'pending' | 'approved' | 'rejected' | 'completed',
+          created_at: req.created_at,
+          processed_at: req.processed_at,
+          affiliate_id: req.affiliate_id,
           profiles: { name: '', email: '' } // Placeholder, will be populated by admin panel
-        })));
+        }));
+        setWithdrawalRequests(transformedRequests);
       }
     } catch (error) {
       console.error('Error fetching withdrawal requests:', error);
