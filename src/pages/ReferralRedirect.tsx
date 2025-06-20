@@ -30,34 +30,48 @@ const ReferralRedirect = () => {
         throw new Error("No referral code provided");
       }
 
-      // Debug: Let's see all referral links in the database
+      // First, let's check if there are any referral links at all
       const { data: allLinks, error: debugError } = await supabase
         .from("referral_links")
         .select("code, id, product_id")
-        .limit(10);
+        .limit(5);
       
-      console.log("All referral links in database:", allLinks, debugError);
+      console.log("Sample referral links in database:", allLinks, debugError);
 
-      // First, get the referral link using maybeSingle() to handle no results gracefully
-      const { data: referralLink, error: referralError } = await supabase
+      // Search for the referral link with case-insensitive comparison
+      const { data: referralLinks, error: referralError } = await supabase
         .from("referral_links")
         .select("*")
-        .eq("code", code)
-        .maybeSingle();
+        .ilike("code", code);
 
-      console.log("Referral link query result:", referralLink, referralError);
+      console.log("Referral link search result:", referralLinks, referralError);
 
       if (referralError) {
         console.error("Error fetching referral link:", referralError);
         throw new Error(`Database error: ${referralError.message}`);
       }
 
-      if (!referralLink) {
+      if (!referralLinks || referralLinks.length === 0) {
         console.log(`No referral link found for code: ${code}`);
-        throw new Error("Referral code not found");
+        // Let's also try an exact match in case case-sensitivity is the issue
+        const { data: exactMatch, error: exactError } = await supabase
+          .from("referral_links")
+          .select("*")
+          .eq("code", code)
+          .maybeSingle();
+        
+        console.log("Exact match attempt:", exactMatch, exactError);
+        
+        if (!exactMatch) {
+          throw new Error("Referral code not found");
+        }
+        
+        referralLinks.push(exactMatch);
       }
 
-      // Then get the product details using maybeSingle()
+      const referralLink = referralLinks[0];
+
+      // Get the product details
       const { data: product, error: productError } = await supabase
         .from("products")
         .select("*")
@@ -261,8 +275,12 @@ const ReferralRedirect = () => {
               Go Back
             </Button>
             <div className="mt-4 p-4 bg-blue-50 rounded-lg text-left">
-              <p className="text-sm text-blue-800 font-medium">Debug Info:</p>
-              <p className="text-xs text-blue-600 mt-1">Check console for referral links in database</p>
+              <p className="text-sm text-blue-800 font-medium">Troubleshooting:</p>
+              <p className="text-xs text-blue-600 mt-1">
+                1. Check the console for database query results<br/>
+                2. Verify the referral code is correct<br/>
+                3. Ensure the referral link exists in the database
+              </p>
             </div>
           </div>
         </div>
