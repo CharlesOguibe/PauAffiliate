@@ -53,7 +53,7 @@ const AdminPanel = () => {
           created_at,
           processed_at,
           affiliate_id,
-          profiles:affiliate_id (
+          profiles!withdrawal_requests_affiliate_id_fkey (
             name,
             email
           )
