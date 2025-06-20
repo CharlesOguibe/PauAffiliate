@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -24,33 +23,53 @@ const ReferralRedirect = () => {
   } = useQuery({
     queryKey: ["referral", code],
     queryFn: async () => {
+      console.log("=== REFERRAL LINK DEBUGGING ===");
       console.log("Processing referral code:", code);
+      console.log("Code type:", typeof code);
+      console.log("Code length:", code?.length);
 
       if (!code) {
         throw new Error("No referral code provided");
       }
 
-      // First, let's check if there are any referral links at all
+      // First, let's see ALL referral links in the database
       const { data: allLinks, error: debugError } = await supabase
         .from("referral_links")
-        .select("code, id, product_id")
-        .limit(5);
+        .select("*");
       
-      console.log("Sample referral links in database:", allLinks, debugError);
+      console.log("ALL referral links in database:", allLinks);
+      console.log("Database query error:", debugError);
+
+      if (allLinks) {
+        console.log("Total referral links found:", allLinks.length);
+        allLinks.forEach((link, index) => {
+          console.log(`Link ${index + 1}:`, {
+            id: link.id,
+            code: link.code,
+            codeType: typeof link.code,
+            codeLength: link.code?.length,
+            exactMatch: link.code === code,
+            caseInsensitiveMatch: link.code?.toLowerCase() === code?.toLowerCase()
+          });
+        });
+      }
 
       // Try exact match first
+      console.log("Attempting exact match search...");
       const { data: exactMatch, error: exactError } = await supabase
         .from("referral_links")
         .select("*")
         .eq("code", code)
         .maybeSingle();
 
-      console.log("Exact match attempt:", exactMatch, exactError);
+      console.log("Exact match result:", exactMatch);
+      console.log("Exact match error:", exactError);
 
       let referralLink = exactMatch;
 
       // If no exact match, try case-insensitive search
       if (!referralLink && !exactError) {
+        console.log("Attempting case-insensitive search...");
         const { data: caseInsensitiveResults, error: caseError } = await supabase
           .from("referral_links")
           .select("*")
@@ -58,22 +77,40 @@ const ReferralRedirect = () => {
           .limit(1)
           .maybeSingle();
 
-        console.log("Case-insensitive search result:", caseInsensitiveResults, caseError);
+        console.log("Case-insensitive search result:", caseInsensitiveResults);
+        console.log("Case-insensitive search error:", caseError);
         
         if (!caseError) {
           referralLink = caseInsensitiveResults;
         }
       }
 
+      // Try a broader search to see if there are similar codes
+      if (!referralLink) {
+        console.log("Attempting wildcard search...");
+        const { data: wildcardResults, error: wildcardError } = await supabase
+          .from("referral_links")
+          .select("*")
+          .ilike("code", `%${code}%`)
+          .limit(5);
+
+        console.log("Wildcard search results:", wildcardResults);
+        console.log("Wildcard search error:", wildcardError);
+      }
+
       if (exactError) {
-        console.error("Error fetching referral link:", exactError);
+        console.error("Database error during exact match:", exactError);
         throw new Error(`Database error: ${exactError.message}`);
       }
 
       if (!referralLink) {
-        console.log(`No referral link found for code: ${code}`);
+        console.log(`=== NO REFERRAL LINK FOUND ===`);
+        console.log(`Searched for code: "${code}"`);
+        console.log(`Available codes:`, allLinks?.map(l => l.code));
         throw new Error("Referral code not found");
       }
+
+      console.log("Found referral link:", referralLink);
 
       // Get the product details
       const { data: product, error: productError } = await supabase
@@ -279,11 +316,10 @@ const ReferralRedirect = () => {
               Go Back
             </Button>
             <div className="mt-4 p-4 bg-blue-50 rounded-lg text-left">
-              <p className="text-sm text-blue-800 font-medium">Troubleshooting:</p>
+              <p className="text-sm text-blue-800 font-medium">Debugging Info:</p>
               <p className="text-xs text-blue-600 mt-1">
-                1. Check the console for database query results<br/>
-                2. Verify the referral code is correct<br/>
-                3. Ensure the referral link exists in the database
+                Check the browser console for detailed database query results.
+                This will show all available referral codes and search attempts.
               </p>
             </div>
           </div>
