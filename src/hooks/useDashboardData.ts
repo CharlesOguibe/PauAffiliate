@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ReferralLink } from '@/types';
 import { DashboardEarnings, DashboardTransaction, DashboardNotification, WithdrawalRequest } from '@/types/dashboard';
 
-export const useDashboardData = (userId: string | undefined, isAffiliateUser: boolean) => {
+export const useDashboardData = (userId: string | undefined, shouldFetchEarningsData: boolean) => {
   const [referralLinks, setReferralLinks] = useState<Array<ReferralLink & { product: { name: string; price: number; commissionRate: number } }>>([]);
   const [earnings, setEarnings] = useState<DashboardEarnings>({
     total: 0,
@@ -87,25 +87,57 @@ export const useDashboardData = (userId: string | undefined, isAffiliateUser: bo
         .eq('user_id', userId)
         .single();
 
-      // Fetch affiliate earnings
-      const { data: affiliateEarnings } = await supabase
-        .from('affiliate_earnings')
-        .select('amount, status')
-        .eq('affiliate_id', userId);
+      // For business users, fetch earnings from sales of their products
+      // For affiliate users, fetch earnings from affiliate_earnings table
+      let totalEarnings = 0;
+      let pendingEarnings = 0;
 
-      if (affiliateEarnings) {
-        const total = affiliateEarnings.reduce((sum, earning) => sum + earning.amount, 0);
-        const pending = affiliateEarnings
-          .filter(e => e.status === 'pending')
-          .reduce((sum, earning) => sum + earning.amount, 0);
-        
-        setEarnings({
-          total,
-          pending,
-          available: wallet?.balance || 0,
-          thisMonth: total
-        });
+      // Check if user is business by looking at business_profiles
+      const { data: businessProfile } = await supabase
+        .from('business_profiles')
+        .select('id')
+        .eq('id', userId)
+        .single();
+
+      if (businessProfile) {
+        // Business user - calculate earnings from sales of their products
+        const { data: businessSales } = await supabase
+          .from('sales')
+          .select(`
+            amount,
+            commission_amount,
+            status,
+            products!inner(business_id)
+          `)
+          .eq('products.business_id', userId);
+
+        if (businessSales) {
+          totalEarnings = businessSales.reduce((sum, sale) => sum + (sale.amount - sale.commission_amount), 0);
+          pendingEarnings = businessSales
+            .filter(sale => sale.status === 'pending')
+            .reduce((sum, sale) => sum + (sale.amount - sale.commission_amount), 0);
+        }
+      } else {
+        // Affiliate user - fetch from affiliate_earnings
+        const { data: affiliateEarnings } = await supabase
+          .from('affiliate_earnings')
+          .select('amount, status')
+          .eq('affiliate_id', userId);
+
+        if (affiliateEarnings) {
+          totalEarnings = affiliateEarnings.reduce((sum, earning) => sum + earning.amount, 0);
+          pendingEarnings = affiliateEarnings
+            .filter(e => e.status === 'pending')
+            .reduce((sum, earning) => sum + earning.amount, 0);
+        }
       }
+      
+      setEarnings({
+        total: totalEarnings,
+        pending: pendingEarnings,
+        available: wallet?.balance || 0,
+        thisMonth: totalEarnings
+      });
     } catch (error) {
       console.error('Error fetching earnings:', error);
     }
@@ -202,15 +234,22 @@ export const useDashboardData = (userId: string | undefined, isAffiliateUser: bo
 
   useEffect(() => {
     if (userId) {
-      if (isAffiliateUser) {
-        fetchReferralLinks();
+      // Always fetch notifications for any user type
+      fetchNotifications();
+      
+      if (shouldFetchEarningsData) {
         fetchEarnings();
         fetchTransactions();
         fetchWithdrawalRequests();
+        
+        // Only fetch referral links for affiliate users
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (user.role === 'affiliate') {
+          fetchReferralLinks();
+        }
       }
-      fetchNotifications();
     }
-  }, [userId, isAffiliateUser]);
+  }, [userId, shouldFetchEarningsData]);
 
   return {
     referralLinks,

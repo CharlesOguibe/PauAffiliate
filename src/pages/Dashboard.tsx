@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -19,8 +18,7 @@ import {
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-import { ReferralLink } from '@/types';
+import { useDashboardData } from '@/hooks/useDashboardData';
 import { useToast } from '@/hooks/use-toast';
 import EarningsOverview from '@/components/earnings/EarningsOverview';
 import TransactionHistory from '@/components/earnings/TransactionHistory';
@@ -29,14 +27,8 @@ import WithdrawalRequest from '@/components/withdrawals/WithdrawalRequest';
 import WithdrawalHistory from '@/components/withdrawals/WithdrawalHistory';
 import AdminPanel from '@/components/admin/AdminPanel';
 import ProductList from '@/components/products/ProductList';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import ReferralLinksTable from '@/components/dashboard/ReferralLinksTable';
+import BusinessMetrics from '@/components/dashboard/BusinessMetrics';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -44,242 +36,18 @@ const Dashboard = () => {
   const isAffiliateUser = user?.role === 'affiliate';
   const isBusinessUser = user?.role === 'business';
   const isAdminUser = user?.role === 'admin';
-  const [referralLinks, setReferralLinks] = useState<Array<ReferralLink & { product: { name: string; price: number; commissionRate: number } }>>([]);
-  const [loading, setLoading] = useState(false);
+  
+  const {
+    referralLinks,
+    earnings,
+    transactions,
+    notifications,
+    withdrawalRequests,
+    loading,
+    refetch
+  } = useDashboardData(user?.id, isAffiliateUser || isBusinessUser);
+
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
-  const [earnings, setEarnings] = useState({
-    total: 0,
-    pending: 0,
-    available: 0,
-    thisMonth: 0
-  });
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
-  const [productCount, setProductCount] = useState(0);
-  const [totalReferrals, setTotalReferrals] = useState(0);
-  const [totalSales, setTotalSales] = useState(0);
-
-  useEffect(() => {
-    if (user?.id) {
-      if (isAffiliateUser) {
-        fetchReferralLinks();
-        fetchEarnings();
-        fetchTransactions();
-        fetchWithdrawalRequests();
-      }
-      if (isBusinessUser) {
-        fetchProductCount();
-        fetchBusinessMetrics();
-      }
-      fetchNotifications();
-      setupRealtimeSubscriptions();
-    }
-  }, [user?.id, isAffiliateUser, isBusinessUser]);
-
-  const fetchProductCount = async () => {
-    try {
-      const { count, error } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('business_id', user?.id);
-
-      if (error) {
-        console.error('Error fetching product count:', error);
-      } else {
-        setProductCount(count || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching product count:', error);
-    }
-  };
-
-  const fetchBusinessMetrics = async () => {
-    try {
-      // First, fetch the product IDs for this business
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('id')
-        .eq('business_id', user?.id);
-
-      if (productsError) {
-        console.error('Error fetching products for metrics:', productsError);
-        return;
-      }
-
-      const productIds = products?.map(p => p.id) || [];
-
-      if (productIds.length === 0) {
-        setTotalReferrals(0);
-        setTotalSales(0);
-        return;
-      }
-
-      // Fetch total referrals count
-      const { count: referralCount, error: referralError } = await supabase
-        .from('referral_links')
-        .select('*', { count: 'exact', head: true })
-        .in('product_id', productIds);
-
-      if (referralError) {
-        console.error('Error fetching referral count:', referralError);
-      } else {
-        setTotalReferrals(referralCount || 0);
-      }
-
-      // Fetch total sales amount
-      const { data: salesData, error: salesError } = await supabase
-        .from('sales')
-        .select('amount')
-        .in('product_id', productIds)
-        .eq('status', 'completed');
-
-      if (salesError) {
-        console.error('Error fetching sales data:', salesError);
-      } else {
-        const totalAmount = salesData?.reduce((sum, sale) => sum + sale.amount, 0) || 0;
-        setTotalSales(totalAmount);
-      }
-    } catch (error) {
-      console.error('Error fetching business metrics:', error);
-    }
-  };
-
-  const setupRealtimeSubscriptions = () => {
-    // Subscribe to notifications
-    const notificationsChannel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user?.id}`
-        },
-        (payload) => {
-          console.log('New notification:', payload);
-          fetchNotifications();
-        }
-      )
-      .subscribe();
-
-    // Subscribe to product changes for business users
-    let productsChannel;
-    let referralLinksChannel;
-    let salesChannel;
-    
-    if (isBusinessUser) {
-      productsChannel = supabase
-        .channel('products')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'products',
-            filter: `business_id=eq.${user?.id}`
-          },
-          (payload) => {
-            console.log('Product change:', payload);
-            fetchProductCount();
-          }
-        )
-        .subscribe();
-
-      // Subscribe to referral links changes
-      referralLinksChannel = supabase
-        .channel('referral_links')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'referral_links'
-          },
-          (payload) => {
-            console.log('Referral link change:', payload);
-            fetchBusinessMetrics();
-          }
-        )
-        .subscribe();
-
-      // Subscribe to sales changes
-      salesChannel = supabase
-        .channel('sales')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'sales'
-          },
-          (payload) => {
-            console.log('Sale change:', payload);
-            fetchBusinessMetrics();
-          }
-        )
-        .subscribe();
-    }
-
-    return () => {
-      supabase.removeChannel(notificationsChannel);
-      if (productsChannel) {
-        supabase.removeChannel(productsChannel);
-      }
-      if (referralLinksChannel) {
-        supabase.removeChannel(referralLinksChannel);
-      }
-      if (salesChannel) {
-        supabase.removeChannel(salesChannel);
-      }
-    };
-  };
-
-  const fetchReferralLinks = async () => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('referral_links')
-        .select(`
-          id, 
-          code, 
-          clicks, 
-          conversions, 
-          product_id, 
-          created_at,
-          products (
-            name, 
-            price, 
-            commission_rate
-          )
-        `)
-        .eq('affiliate_id', user?.id);
-
-      if (error) {
-        console.error('Error fetching referral links:', error);
-      } else {
-        setReferralLinks(data.map(item => ({
-          id: item.id,
-          productId: item.product_id,
-          affiliateId: user?.id || '',
-          code: item.code,
-          clicks: item.clicks,
-          conversions: item.conversions,
-          createdAt: new Date(item.created_at),
-          product: {
-            name: item.products.name,
-            price: item.products.price,
-            commissionRate: item.products.commission_rate
-          }
-        })));
-      }
-    } catch (error) {
-      console.error('Error fetching referral links:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const copyToClipboard = (code: string, id: string) => {
     const referralLink = `${window.location.origin}/ref/${code}`;
@@ -291,109 +59,6 @@ const Dashboard = () => {
       });
       setTimeout(() => setCopiedLinkId(null), 2000);
     });
-  };
-
-  const fetchEarnings = async () => {
-    try {
-      // Fetch wallet balance
-      const { data: wallet } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('user_id', user?.id)
-        .single();
-
-      // Fetch affiliate earnings
-      const { data: affiliateEarnings } = await supabase
-        .from('affiliate_earnings')
-        .select('amount, status')
-        .eq('affiliate_id', user?.id);
-
-      if (affiliateEarnings) {
-        const total = affiliateEarnings.reduce((sum, earning) => sum + earning.amount, 0);
-        const pending = affiliateEarnings
-          .filter(e => e.status === 'pending')
-          .reduce((sum, earning) => sum + earning.amount, 0);
-        
-        setEarnings({
-          total,
-          pending,
-          available: wallet?.balance || 0,
-          thisMonth: total
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching earnings:', error);
-    }
-  };
-
-  const fetchTransactions = async () => {
-    try {
-      const { data: walletTransactions } = await supabase
-        .from('wallet_transactions')
-        .select(`
-          id,
-          amount,
-          transaction_type,
-          description,
-          created_at
-        `)
-        .eq('wallet_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (walletTransactions) {
-        setTransactions(walletTransactions.map(tx => ({
-          id: tx.id,
-          type: tx.transaction_type === 'commission' ? 'commission' : 'withdrawal',
-          amount: Math.abs(tx.amount),
-          description: tx.description || 'Transaction',
-          date: new Date(tx.created_at),
-          status: 'completed'
-        })));
-      }
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    }
-  };
-
-  const fetchNotifications = async () => {
-    try {
-      const { data } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (data) {
-        setNotifications(data.map(n => ({
-          id: n.id,
-          title: n.title,
-          message: n.message,
-          type: n.type,
-          read: n.read,
-          createdAt: new Date(n.created_at)
-        })));
-      }
-    } catch (error) {
-      console.error('Error fetching notifications:', error);
-    }
-  };
-
-  const fetchWithdrawalRequests = async () => {
-    try {
-      const { data } = await supabase
-        .from('withdrawal_requests')
-        .select('*')
-        .eq('affiliate_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (data) {
-        setWithdrawalRequests(data);
-      }
-    } catch (error) {
-      console.error('Error fetching withdrawal requests:', error);
-    }
   };
 
   const handleMarkNotificationAsRead = async (id: string) => {
@@ -438,7 +103,7 @@ const Dashboard = () => {
 
       if (error) throw error;
       
-      fetchWithdrawalRequests();
+      refetch.withdrawalRequests();
       
       // Create notification
       await supabase.rpc('create_notification', {
@@ -502,7 +167,7 @@ const Dashboard = () => {
 
         {isAdminUser && <AdminPanel />}
 
-        {isAffiliateUser && (
+        {(isAffiliateUser || isBusinessUser) && (
           <>
             <EarningsOverview 
               totalEarnings={earnings.total}
@@ -525,49 +190,7 @@ const Dashboard = () => {
 
         {isBusinessUser && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <GlassCard hover>
-                <div className="flex items-center space-x-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <Package className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Your Products
-                    </div>
-                    <div className="text-2xl font-bold">{productCount}</div>
-                  </div>
-                </div>
-              </GlassCard>
-
-              <GlassCard hover>
-                <div className="flex items-center space-x-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <LinkIcon className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Total Referrals
-                    </div>
-                    <div className="text-2xl font-bold">{totalReferrals}</div>
-                  </div>
-                </div>
-              </GlassCard>
-
-              <GlassCard hover>
-                <div className="flex items-center space-x-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <DollarSign className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-muted-foreground">
-                      Total Sales
-                    </div>
-                    <div className="text-2xl font-bold">₦{totalSales.toFixed(2)}</div>
-                  </div>
-                </div>
-              </GlassCard>
-            </div>
+            <BusinessMetrics referralLinks={referralLinks} isAffiliateUser={false} />
 
             <div className="mb-8">
               <ProductList limit={5} />
@@ -592,72 +215,13 @@ const Dashboard = () => {
 
         {isAffiliateUser && (
           <>
-            {referralLinks.length > 0 ? (
-              <div className="mt-8">
-                <h2 className="text-xl font-medium mb-4">Your Referral Links</h2>
-                <GlassCard className="overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Product</TableHead>
-                          <TableHead>Commission Rate</TableHead>
-                          <TableHead>Clicks</TableHead>
-                          <TableHead>Conversions</TableHead>
-                          <TableHead>Referral Link</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {referralLinks.map((link) => (
-                          <TableRow key={link.id}>
-                            <TableCell className="font-medium">{link.product.name}</TableCell>
-                            <TableCell>{link.product.commissionRate}%</TableCell>
-                            <TableCell>{link.clicks}</TableCell>
-                            <TableCell>{link.conversions}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <code className="bg-muted px-2 py-1 rounded text-xs">
-                                  {`${window.location.origin}/ref/${link.code}`}
-                                </code>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon"
-                                  onClick={() => copyToClipboard(link.code, link.id)}
-                                >
-                                  {copiedLinkId === link.id ? (
-                                    <CheckCircle className="h-4 w-4 text-green-500" />
-                                  ) : (
-                                    <Copy className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </GlassCard>
-              </div>
-            ) : (
-              <GlassCard className="p-6">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="bg-primary/10 p-3 rounded-full">
-                    <LinkIcon className="h-6 w-6 text-primary" />
-                  </div>
-                  <h3 className="text-lg font-medium">Your Referral Links</h3>
-                </div>
-                <p className="text-muted-foreground mb-4">
-                  You haven't created any referral links yet. Browse products to start promoting.
-                </p>
-                <Link to="/affiliate/browse-products">
-                  <Button variant="outline" size="sm">
-                    Create First Link
-                    <ArrowRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </Link>
-              </GlassCard>
-            )}
+            <BusinessMetrics referralLinks={referralLinks} isAffiliateUser={true} />
+            
+            <ReferralLinksTable 
+              referralLinks={referralLinks}
+              copiedLinkId={copiedLinkId}
+              onCopyToClipboard={copyToClipboard}
+            />
             
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               <Link to="/affiliate/browse-products" className="w-full sm:w-auto">
