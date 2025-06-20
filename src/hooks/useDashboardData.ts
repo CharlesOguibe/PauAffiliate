@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReferralLink } from '@/types';
@@ -33,7 +32,7 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
           conversions, 
           product_id, 
           created_at,
-          products (
+          products!fk_referral_links_product (
             name, 
             price, 
             commission_rate
@@ -104,7 +103,7 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
             amount,
             commission_amount,
             status,
-            products!inner(business_id)
+            products!fk_sales_product!inner(business_id)
           `)
           .eq('products.business_id', userId);
 
