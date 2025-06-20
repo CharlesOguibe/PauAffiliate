@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -20,6 +21,7 @@ import GlassCard from '@/components/ui/custom/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import EarningsOverview from '@/components/earnings/EarningsOverview';
 import TransactionHistory from '@/components/earnings/TransactionHistory';
 import NotificationBell from '@/components/notifications/NotificationBell';
@@ -68,9 +70,7 @@ const Dashboard = () => {
         .update({ read: true })
         .eq('id', id);
       
-      setNotifications(prev => prev.map(n => 
-        n.id === id ? { ...n, read: true } : n
-      ));
+      refetch.notifications();
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -83,7 +83,7 @@ const Dashboard = () => {
         .update({ read: true })
         .eq('user_id', user?.id);
       
-      setNotifications([]);
+      refetch.notifications();
     } catch (error) {
       console.error('Error clearing notifications:', error);
     }

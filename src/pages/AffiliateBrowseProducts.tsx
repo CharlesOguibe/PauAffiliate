@@ -1,419 +1,286 @@
 
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Package, ArrowLeft, LogOut, Trash2, ArrowRight } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import Button from '@/components/ui/custom/Button';
-import GlassCard from '@/components/ui/custom/GlassCard';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft, Plus, Copy, CheckCircle, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import Button from '@/components/ui/custom/Button';
+import GlassCard from '@/components/ui/custom/GlassCard';
 import NairaIcon from '@/components/ui/icons/NairaIcon';
 
-type Product = {
-  id: string;
-  business_id: string;
-  name: string;
-  description: string | null;
-  price: number;
-  commission_rate: number;
-  image_url: string | null;
-  created_at: string;
-  business_name?: string;
-  is_promoted?: boolean;
-  referral_link_id?: string;
-};
-
 const AffiliateBrowseProducts = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const [loadingStates, setLoadingStates] = useState<{ [key: string]: boolean }>({});
+  const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
 
-  // Redirect business users back to their dashboard
-  React.useEffect(() => {
-    if (user?.role === 'business') {
-      navigate('/dashboard');
-    }
-  }, [user?.role, navigate]);
-
-  // Fetch all products from all businesses with business names
-  const { data: products = [], isLoading, error } = useQuery({
+  const { data: products, isLoading, refetch } = useQuery({
     queryKey: ['affiliate-products'],
     queryFn: async () => {
-      if (!user?.id) return [];
-      
-      // First fetch all products with business profiles
-      const { data: productData, error: productError } = await supabase
+      console.log('=== FETCHING PRODUCTS FOR AFFILIATE ===');
+      const { data, error } = await supabase
         .from('products')
         .select(`
           *,
-          business_profiles (
-            name
-          )
-        `);
-      
-      if (productError) throw productError;
-      
-      // Then fetch existing referral links for this affiliate
-      const { data: referralLinks, error: referralError } = await supabase
-        .from('referral_links')
-        .select('id, product_id')
-        .eq('affiliate_id', user.id);
-      
-      if (referralError) throw referralError;
-      
-      // Create a map for O(1) lookups
-      const referralMap = new Map(referralLinks?.map(link => [link.product_id, link.id]) || []);
-      
-      // Transform the product data with business name and promotion status
-      return (productData || []).map((product: any) => ({
-        ...product,
-        business_name: product.business_profiles?.name || 'Unknown Business',
-        is_promoted: referralMap.has(product.id),
-        referral_link_id: referralMap.get(product.id)
-      }));
+          business_profiles!inner(name, verified)
+        `)
+        .eq('business_profiles.verified', true);
+
+      console.log('Products query result:', data, error);
+      if (error) throw error;
+      return data;
     },
-    enabled: !!user && user.role === 'affiliate'
   });
 
-  // Mutation for creating a referral link
-  const createReferralLink = useMutation({
-    mutationFn: async (productId: string) => {
-      if (!user?.id) throw new Error('User not authenticated');
+  const { data: userReferralLinks, refetch: refetchReferralLinks } = useQuery({
+    queryKey: ['user-referral-links', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
       
-      // Generate unique referral code using our DB function
-      const { data: codeData, error: codeError } = await supabase
-        .rpc('generate_referral_code');
-      
-      if (codeError) throw codeError;
-      
-      const code = codeData;
-      
-      // Insert the referral link
+      console.log('=== FETCHING USER REFERRAL LINKS ===');
+      const { data, error } = await supabase
+        .from('referral_links')
+        .select('*')
+        .eq('affiliate_id', user.id);
+
+      console.log('User referral links query result:', data, error);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id,
+  });
+
+  const createReferralLink = async (productId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to create referral links",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoadingStates(prev => ({ ...prev, [productId]: true }));
+
+    try {
+      console.log('=== CREATING REFERRAL LINK ===');
+      console.log('Product ID:', productId);
+      console.log('User ID:', user.id);
+      console.log('User role:', user.role);
+
+      // Generate a random code
+      const code = Math.random().toString(36).substring(2, 10);
+      console.log('Generated code:', code);
+
       const { data, error } = await supabase
         .from('referral_links')
         .insert({
           product_id: productId,
           affiliate_id: user.id,
-          code
+          code: code,
         })
         .select()
         .single();
-      
+
+      console.log('Insert result:', data, error);
+
       if (error) {
-        // If there's a unique constraint error, the user already has a link
-        if (error.code === '23505') {
-          toast({
-            title: "Already promoted",
-            description: "You're already promoting this product",
-            variant: "default",
-          });
-          
-          // Fetch existing link
-          const { data: existingLink } = await supabase
-            .from('referral_links')
-            .select('code')
-            .eq('product_id', productId)
-            .eq('affiliate_id', user.id)
-            .single();
-          
-          return existingLink;
-        }
+        console.error('Error creating referral link:', error);
         throw error;
       }
-      
-      return data;
-    },
-    onSuccess: (data) => {
+
+      console.log('Successfully created referral link:', data);
+
       toast({
         title: "Success!",
-        description: `Referral link created: ${window.location.origin}/r/${data.code}`,
-        variant: "default",
+        description: "Referral link created successfully",
       });
-      // Refetch the products to update the UI
-      queryClient.invalidateQueries({ queryKey: ['affiliate-products'] });
-    },
-    onError: (error) => {
-      console.error('Error creating referral link:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create referral link. Please try again.",
-        variant: "destructive",
-      });
-    }
-  });
 
-  // Mutation for deleting a referral link
-  const deleteReferralLink = useMutation({
-    mutationFn: async (referralLinkId: string) => {
-      if (!user?.id) throw new Error('User not authenticated');
-      
-      const { error } = await supabase
+      // Refetch both products and referral links
+      refetch();
+      refetchReferralLinks();
+
+      // Verify the link was created by checking the database
+      const { data: verification, error: verifyError } = await supabase
         .from('referral_links')
-        .delete()
-        .eq('id', referralLinkId)
-        .eq('affiliate_id', user.id); // Ensure user can only delete their own links
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Success!",
-        description: "Referral link deleted successfully",
-        variant: "default",
-      });
-      // Refetch the products to update the UI
-      queryClient.invalidateQueries({ queryKey: ['affiliate-products'] });
-    },
-    onError: (error) => {
-      console.error('Error deleting referral link:', error);
+        .select('*')
+        .eq('id', data.id)
+        .single();
+
+      console.log('Verification check:', verification, verifyError);
+
+    } catch (error) {
+      console.error('Error in createReferralLink:', error);
       toast({
         title: "Error",
-        description: "Failed to delete referral link. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create referral link",
         variant: "destructive",
       });
-    }
-  });
-
-  // Handle "Promote" button click
-  const handlePromote = (productId: string) => {
-    createReferralLink.mutate(productId);
-  };
-
-  // Handle "Delete" button click
-  const handleDelete = (referralLinkId: string) => {
-    deleteReferralLink.mutate(referralLinkId);
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Logout error:', error);
+    } finally {
+      setLoadingStates(prev => ({ ...prev, [productId]: false }));
     }
   };
 
-  const filteredProducts = products.filter(product => 
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.business_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const copyToClipboard = (code: string, id: string) => {
+    const referralLink = `${window.location.origin}/ref/${code}`;
+    navigator.clipboard.writeText(referralLink).then(() => {
+      setCopiedLinkId(id);
+      toast({
+        title: "Success!",
+        description: "Referral link copied to clipboard",
+      });
+      setTimeout(() => setCopiedLinkId(null), 2000);
+    });
+  };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-secondary/50">
-        <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
-          <div className="container mx-auto flex justify-between items-center">
-            <Link to="/" className="text-xl font-semibold tracking-tight">
-              <span className="text-primary">PAU</span>Affiliate
-            </Link>
-          </div>
-        </header>
-        
-        <main className="container mx-auto py-8 px-4">
-          <GlassCard className="p-6 text-center">
-            <p className="text-muted-foreground mb-4">Please sign in to browse products</p>
-            <Link to="/login">
-              <Button>Sign In</Button>
-            </Link>
-          </GlassCard>
-        </main>
-      </div>
-    );
-  }
+  const hasReferralLink = (productId: string) => {
+    const hasLink = userReferralLinks?.some(link => link.product_id === productId);
+    console.log(`Product ${productId} has referral link:`, hasLink);
+    return hasLink;
+  };
+
+  const getReferralLink = (productId: string) => {
+    const link = userReferralLinks?.find(link => link.product_id === productId);
+    console.log(`Referral link for product ${productId}:`, link);
+    return link;
+  };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-secondary/50">
-        <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
-          <div className="container mx-auto flex justify-between items-center">
-            <Link to="/" className="text-xl font-semibold tracking-tight">
-              <span className="text-primary">PAU</span>Affiliate
-            </Link>
-          </div>
-        </header>
-        
-        <main className="container mx-auto py-8 px-4">
-          <GlassCard className="p-6">
-            <div className="flex flex-col items-center justify-center">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4"></div>
-              <p className="text-muted-foreground">Loading products...</p>
-            </div>
-          </GlassCard>
-        </main>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-secondary/50">
-        <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
-          <div className="container mx-auto flex justify-between items-center">
-            <Link to="/" className="text-xl font-semibold tracking-tight">
-              <span className="text-primary">PAU</span>Affiliate
-            </Link>
-          </div>
-        </header>
-        
-        <main className="container mx-auto py-8 px-4">
-          <GlassCard className="p-6 text-center">
-            <p className="text-destructive mb-4">Failed to load products</p>
-            <Button onClick={() => window.location.reload()} variant="outline">
-              Try Again
-            </Button>
-          </GlassCard>
-        </main>
+      <div className="min-h-screen flex items-center justify-center bg-secondary/50">
+        <div className="text-center">
+          <div className="h-8 w-8 mx-auto mb-4 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+          <p className="text-muted-foreground">Loading products...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-secondary/50">
-      <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link to="/" className="text-xl font-semibold tracking-tight">
-            <span className="text-primary">PAU</span>Affiliate
-          </Link>
-          
-          <div className="flex items-center space-x-4">
-            <Link to="/dashboard">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Dashboard
-              </Button>
-            </Link>
-            <span className="text-sm text-muted-foreground">{user.email}</span>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-1" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container mx-auto py-8 px-4">
-        <div className="mb-6">
-          <Link to="/dashboard" className="inline-flex items-center text-sm mb-2 hover:text-primary transition-colors">
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8">
+          <Link to="/dashboard" className="inline-flex items-center text-sm mb-4 hover:text-primary transition-colors">
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-medium tracking-tight">Browse Products</h1>
+          <h1 className="text-3xl font-bold">Browse Products</h1>
           <p className="text-muted-foreground mt-2">
-            Find products to promote and earn commissions
+            Create referral links for verified business products
           </p>
         </div>
 
-        <div className="mb-6">
-          <Input
-            type="search"
-            placeholder="Search products or businesses..."
-            className="max-w-md"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        {/* Debug Info */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-sm text-blue-800">
+            <strong>Debug Info:</strong> Found {products?.length || 0} verified products. 
+            User has {userReferralLinks?.length || 0} existing referral links.
+            Check browser console for detailed logs.
+          </p>
         </div>
 
-        {filteredProducts.length === 0 ? (
-          <GlassCard className="p-6 text-center">
-            <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-medium mb-2">No Products Found</h3>
-            <p className="text-muted-foreground mb-4">
-              {searchTerm 
-                ? "No products match your search. Try different keywords."
-                : "There are no products available for promotion yet."}
+        {!products || products.length === 0 ? (
+          <GlassCard className="text-center py-12">
+            <Package className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+            <h3 className="text-xl font-medium mb-2">No Products Available</h3>
+            <p className="text-muted-foreground">
+              There are no verified products available for promotion at the moment.
             </p>
-            <Link to="/dashboard">
-              <Button variant="outline">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
           </GlassCard>
         ) : (
-          <div className="space-y-4">
-            {filteredProducts.map((product) => (
-              <GlassCard
-                key={product.id}
-                className="p-4 animate-fade-in"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
-                      {product.image_url ? (
-                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-md" />
-                      ) : (
-                        <Package className="h-6 w-6 text-muted-foreground" />
-                      )}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {products.map((product) => {
+              const hasLink = hasReferralLink(product.id);
+              const referralLink = getReferralLink(product.id);
+              const isLoading = loadingStates[product.id] || false;
+
+              return (
+                <GlassCard key={product.id} className="overflow-hidden">
+                  {product.image_url ? (
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full h-48 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-48 bg-muted flex items-center justify-center">
+                      <Package className="h-12 w-12 text-muted-foreground" />
                     </div>
-                    <div>
-                      <h3 className="font-medium">{product.name}</h3>
-                      <div className="flex flex-col sm:flex-row sm:items-center space-y-1 sm:space-y-0 sm:space-x-2 text-sm text-muted-foreground">
+                  )}
+                  
+                  <div className="p-6">
+                    <h3 className="text-lg font-semibold mb-2">{product.name}</h3>
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-3">
+                      {product.description}
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Price</span>
                         <div className="flex items-center">
-                          <NairaIcon className="h-3 w-3 mr-1" />
-                          <span>{product.price.toFixed(2)}</span>
+                          <NairaIcon className="h-4 w-4 mr-1" />
+                          <span className="font-semibold">₦{product.price.toFixed(2)}</span>
                         </div>
-                        <span className="hidden sm:inline">•</span>
-                        <span>{product.commission_rate}% commission</span>
-                        <span className="hidden sm:inline">•</span>
-                        <span>By {product.business_name}</span>
+                      </div>
+                      
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Commission</span>
+                        <span className="font-semibold text-green-600">
+                          {product.commission_rate}%
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">You Earn</span>
+                        <div className="flex items-center text-green-600 font-semibold">
+                          <NairaIcon className="h-4 w-4 mr-1" />
+                          <span>₦{(product.price * product.commission_rate / 100).toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-2">
-                    {product.is_promoted ? (
-                      <>
+
+                    <div className="mt-6">
+                      {hasLink ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center space-x-2">
+                            <code className="bg-muted px-2 py-1 rounded text-xs flex-1 truncate">
+                              {`${window.location.origin}/ref/${referralLink?.code}`}
+                            </code>
+                            <Button 
+                              variant="ghost" 
+                              size="icon"
+                              onClick={() => referralLink && copyToClipboard(referralLink.code, referralLink.id)}
+                            >
+                              {copiedLinkId === referralLink?.id ? (
+                                <CheckCircle className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <Copy className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </div>
+                          <p className="text-xs text-green-600">✓ Referral link created</p>
+                        </div>
+                      ) : (
                         <Button
-                          variant="outline"
-                          size="sm"
-                          disabled
+                          onClick={() => createReferralLink(product.id)}
+                          isLoading={isLoading}
+                          loadingText="Creating..."
+                          className="w-full"
                         >
-                          Already Promoting
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Referral Link
                         </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDelete(product.referral_link_id!)}
-                          disabled={deleteReferralLink.isPending}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => handlePromote(product.id)}
-                        disabled={createReferralLink.isPending}
-                        isLoading={createReferralLink.isPending}
-                      >
-                        Promote
-                      </Button>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-                
-                <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
-                  {product.description || "No description provided."}
-                </p>
-              </GlassCard>
-            ))}
-            
-            <div className="flex justify-center mt-8">
-              <Link to="/dashboard">
-                <Button variant="outline">
-                  <ArrowRight className="h-4 w-4 mr-2" />
-                  Continue to Dashboard
-                </Button>
-              </Link>
-            </div>
+                </GlassCard>
+              );
+            })}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 };
