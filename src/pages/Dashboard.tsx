@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -56,6 +55,7 @@ const Dashboard = () => {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
+  const [productCount, setProductCount] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
@@ -65,10 +65,30 @@ const Dashboard = () => {
         fetchTransactions();
         fetchWithdrawalRequests();
       }
+      if (isBusinessUser) {
+        fetchProductCount();
+      }
       fetchNotifications();
       setupRealtimeSubscriptions();
     }
-  }, [user?.id, isAffiliateUser]);
+  }, [user?.id, isAffiliateUser, isBusinessUser]);
+
+  const fetchProductCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('business_id', user?.id);
+
+      if (error) {
+        console.error('Error fetching product count:', error);
+      } else {
+        setProductCount(count || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching product count:', error);
+    }
+  };
 
   const setupRealtimeSubscriptions = () => {
     // Subscribe to notifications
@@ -89,8 +109,32 @@ const Dashboard = () => {
       )
       .subscribe();
 
+    // Subscribe to product changes for business users
+    let productsChannel;
+    if (isBusinessUser) {
+      productsChannel = supabase
+        .channel('products')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'products',
+            filter: `business_id=eq.${user?.id}`
+          },
+          (payload) => {
+            console.log('Product change:', payload);
+            fetchProductCount();
+          }
+        )
+        .subscribe();
+    }
+
     return () => {
       supabase.removeChannel(notificationsChannel);
+      if (productsChannel) {
+        supabase.removeChannel(productsChannel);
+      }
     };
   };
 
@@ -393,7 +437,7 @@ const Dashboard = () => {
                     <div className="text-sm font-medium text-muted-foreground">
                       Your Products
                     </div>
-                    <div className="text-2xl font-bold">0</div>
+                    <div className="text-2xl font-bold">{productCount}</div>
                   </div>
                 </div>
               </GlassCard>
