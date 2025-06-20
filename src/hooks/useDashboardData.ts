@@ -80,24 +80,28 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
     if (!userId) return;
     
     try {
-      // Fetch wallet balance
-      const { data: wallet } = await supabase
+      // Fetch wallet balance - fix the query structure
+      const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('balance')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
+
+      console.log('Wallet query result:', wallet, walletError);
 
       // For business users, fetch earnings from sales of their products
       // For affiliate users, fetch earnings from affiliate_earnings table
       let totalEarnings = 0;
       let pendingEarnings = 0;
 
-      // Check if user is business by looking at business_profiles
-      const { data: businessProfile } = await supabase
+      // Check if user is business by looking at business_profiles - fix the query structure
+      const { data: businessProfile, error: businessError } = await supabase
         .from('business_profiles')
         .select('id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
+
+      console.log('Business profile query result:', businessProfile, businessError);
 
       if (businessProfile) {
         // Business user - calculate earnings from sales of their products

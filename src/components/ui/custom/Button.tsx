@@ -12,7 +12,7 @@ export interface CustomButtonProps extends React.ButtonHTMLAttributes<HTMLButton
   loadingText?: string;
 }
 
-const Button = ({
+const Button = React.forwardRef<HTMLButtonElement, CustomButtonProps>(({
   children,
   className,
   variant = "default",
@@ -20,7 +20,7 @@ const Button = ({
   isLoading = false,
   loadingText,
   ...props
-}: CustomButtonProps) => {
+}, ref) => {
   
   // Function to determine the className based on variant
   const getVariant = () => {
@@ -46,6 +46,7 @@ const Button = ({
   
   return (
     <ShadcnButton
+      ref={ref}
       className={cn(
         getVariant(),
         size === "sm" && "h-9 rounded-md px-3",
@@ -66,6 +67,8 @@ const Button = ({
       )}
     </ShadcnButton>
   );
-};
+});
+
+Button.displayName = "Button";
 
 export default Button;
