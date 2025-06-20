@@ -30,40 +30,40 @@ const ReferralRedirect = () => {
         throw new Error("No referral code provided");
       }
 
-      // First, get the referral link
+      // First, get the referral link using maybeSingle() to handle no results gracefully
       const { data: referralLink, error: referralError } = await supabase
         .from("referral_links")
         .select("*")
         .eq("code", code)
-        .single();
+        .maybeSingle();
 
       console.log("Referral link query result:", referralLink, referralError);
 
       if (referralError) {
         console.error("Error fetching referral link:", referralError);
-        throw new Error(`Invalid referral code: ${referralError.message}`);
+        throw new Error(`Database error: ${referralError.message}`);
       }
 
       if (!referralLink) {
-        throw new Error("Referral link not found");
+        throw new Error("Referral code not found");
       }
 
-      // Then get the product details
+      // Then get the product details using maybeSingle()
       const { data: product, error: productError } = await supabase
         .from("products")
         .select("*")
         .eq("id", referralLink.product_id)
-        .single();
+        .maybeSingle();
 
       console.log("Product query result:", product, productError);
 
       if (productError) {
         console.error("Error fetching product:", productError);
-        throw new Error(`Product not found: ${productError.message}`);
+        throw new Error(`Product lookup error: ${productError.message}`);
       }
 
       if (!product) {
-        throw new Error("Product not found");
+        throw new Error("Product not found or no longer available");
       }
 
       console.log("Found referral link and product:", { referralLink, product });
@@ -89,7 +89,7 @@ const ReferralRedirect = () => {
 
       return {
         ...referralLink,
-        products: product
+        product: product
       };
     },
     enabled: !!code,
@@ -97,7 +97,7 @@ const ReferralRedirect = () => {
   });
 
   const handlePurchase = async () => {
-    if (!referralData?.products) {
+    if (!referralData?.product) {
       toast({
         title: "Error",
         description: "Product information not available",
@@ -125,8 +125,8 @@ const ReferralRedirect = () => {
 
       // Create pending sale
       const { sale, txRef } = await createPendingSale({
-        productId: referralData.products.id,
-        amount: referralData.products.price,
+        productId: referralData.product.id,
+        amount: referralData.product.price,
         customerEmail,
         customerName,
       });
@@ -135,7 +135,7 @@ const ReferralRedirect = () => {
 
       // Initialize Flutterwave payment
       const paymentResult = await initializeFlutterwavePayment({
-        amount: referralData.products.price,
+        amount: referralData.product.price,
         currency: "NGN",
         customer: {
           email: customerEmail,
@@ -143,8 +143,8 @@ const ReferralRedirect = () => {
         },
         tx_ref: txRef,
         customizations: {
-          title: referralData.products.name,
-          description: `Purchase of ${referralData.products.name}`,
+          title: referralData.product.name,
+          description: `Purchase of ${referralData.product.name}`,
         },
       });
 
@@ -193,7 +193,7 @@ const ReferralRedirect = () => {
     );
   }
 
-  if (error || !referralData?.products) {
+  if (error || !referralData?.product) {
     console.error("Referral redirect error:", error);
     
     return (
@@ -236,7 +236,7 @@ const ReferralRedirect = () => {
     );
   }
 
-  const product = referralData.products;
+  const product = referralData.product;
 
   return (
     <div className="min-h-screen bg-secondary/50">
