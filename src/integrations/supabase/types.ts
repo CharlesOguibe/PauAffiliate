@@ -42,6 +42,20 @@ export type Database = {
             referencedRelation: "sales"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "fk_affiliate_earnings_affiliate"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_affiliate_earnings_sale"
+            columns: ["sale_id"]
+            isOneToOne: false
+            referencedRelation: "sales"
+            referencedColumns: ["id"]
+          },
         ]
       }
       business_profiles: {
@@ -212,6 +226,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_products_business"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "products_business_id_fkey"
             columns: ["business_id"]
             isOneToOne: false
@@ -277,6 +298,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_referral_links_affiliate"
+            columns: ["affiliate_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_referral_links_product"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "referral_links_product_id_fkey"
             columns: ["product_id"]
             isOneToOne: false
@@ -320,6 +355,20 @@ export type Database = {
           transaction_reference?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_sales_product"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_sales_referral_link"
+            columns: ["referral_link_id"]
+            isOneToOne: false
+            referencedRelation: "referral_links"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sales_product_id_fkey"
             columns: ["product_id"]
@@ -366,6 +415,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_wallet_transactions_wallet"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "wallets"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "wallet_transactions_sale_id_fkey"
             columns: ["sale_id"]
             isOneToOne: false
@@ -403,7 +459,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_wallets_user"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       withdrawal_requests: {
         Row: {

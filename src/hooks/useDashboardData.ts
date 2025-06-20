@@ -24,13 +24,6 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
     try {
       console.log('Fetching referral links for user:', userId);
       
-      // First, let's check if there are ANY referral links in the system
-      const { data: allLinks, error: allLinksError } = await supabase
-        .from('referral_links')
-        .select('*');
-      
-      console.log('All referral links in system:', allLinks?.length || 0, allLinksError);
-      
       const { data, error } = await supabase
         .from('referral_links')
         .select(`
@@ -80,7 +73,7 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
     if (!userId) return;
     
     try {
-      // Fetch wallet balance - fix the query structure
+      // Fetch wallet balance
       const { data: wallet, error: walletError } = await supabase
         .from('wallets')
         .select('balance')
@@ -94,7 +87,7 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
       let totalEarnings = 0;
       let pendingEarnings = 0;
 
-      // Check if user is business by looking at business_profiles - fix the query structure
+      // Check if user is business by looking at business_profiles
       const { data: businessProfile, error: businessError } = await supabase
         .from('business_profiles')
         .select('id')
@@ -105,7 +98,7 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
 
       if (businessProfile) {
         // Business user - calculate earnings from sales of their products
-        const { data: businessSales } = await supabase
+        const { data: businessSales, error: salesError } = await supabase
           .from('sales')
           .select(`
             amount,
@@ -115,6 +108,8 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
           `)
           .eq('products.business_id', userId);
 
+        console.log('Business sales query result:', businessSales, salesError);
+
         if (businessSales) {
           totalEarnings = businessSales.reduce((sum, sale) => sum + (sale.amount - sale.commission_amount), 0);
           pendingEarnings = businessSales
@@ -123,10 +118,12 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
         }
       } else {
         // Affiliate user - fetch from affiliate_earnings
-        const { data: affiliateEarnings } = await supabase
+        const { data: affiliateEarnings, error: earningsError } = await supabase
           .from('affiliate_earnings')
           .select('amount, status')
           .eq('affiliate_id', userId);
+
+        console.log('Affiliate earnings query result:', affiliateEarnings, earningsError);
 
         if (affiliateEarnings) {
           totalEarnings = affiliateEarnings.reduce((sum, earning) => sum + earning.amount, 0);
@@ -151,7 +148,21 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
     if (!userId) return;
     
     try {
-      const { data: walletTransactions } = await supabase
+      // First ensure we have a wallet for this user
+      const { data: userWallet, error: walletError } = await supabase
+        .from('wallets')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      console.log('User wallet lookup:', userWallet, walletError);
+
+      if (!userWallet) {
+        console.log('No wallet found for user, skipping transactions fetch');
+        return;
+      }
+
+      const { data: walletTransactions, error: transactionsError } = await supabase
         .from('wallet_transactions')
         .select(`
           id,
@@ -160,9 +171,11 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
           description,
           created_at
         `)
-        .eq('wallet_id', userId)
+        .eq('wallet_id', userWallet.id)
         .order('created_at', { ascending: false })
         .limit(10);
+
+      console.log('Wallet transactions query result:', walletTransactions, transactionsError);
 
       if (walletTransactions) {
         setTransactions(walletTransactions.map(tx => ({
@@ -183,12 +196,14 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
     if (!userId) return;
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(20);
+
+      console.log('Notifications query result:', data, error);
 
       if (data) {
         const transformedNotifications: DashboardNotification[] = data.map(n => ({
@@ -210,11 +225,13 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
     if (!userId) return;
     
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('withdrawal_requests')
         .select('*')
         .eq('affiliate_id', userId)
         .order('created_at', { ascending: false });
+
+      console.log('Withdrawal requests query result:', data, error);
 
       if (data) {
         const transformedRequests: WithdrawalRequest[] = data.map(req => ({
