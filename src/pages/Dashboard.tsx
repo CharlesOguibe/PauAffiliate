@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -13,18 +12,21 @@ import {
   Copy,
   CheckCircle,
   LogOut,
-  ArrowLeft
+  ArrowLeft,
+  Shield
 } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { useAuth } from '@/contexts/AuthContext';
-import ProductList from '@/components/products/ProductList';
 import { supabase } from '@/integrations/supabase/client';
 import { ReferralLink } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import EarningsOverview from '@/components/earnings/EarningsOverview';
 import TransactionHistory from '@/components/earnings/TransactionHistory';
 import NotificationBell from '@/components/notifications/NotificationBell';
+import WithdrawalRequest from '@/components/withdrawals/WithdrawalRequest';
+import WithdrawalHistory from '@/components/withdrawals/WithdrawalHistory';
+import AdminPanel from '@/components/admin/AdminPanel';
 import {
   Table,
   TableBody,
@@ -39,6 +41,7 @@ const Dashboard = () => {
   const { toast } = useToast();
   const isAffiliateUser = user?.role === 'affiliate';
   const isBusinessUser = user?.role === 'business';
+  const isAdminUser = user?.role === 'admin';
   const [referralLinks, setReferralLinks] = useState<Array<ReferralLink & { product: { name: string; price: number; commissionRate: number } }>>([]);
   const [loading, setLoading] = useState(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -50,15 +53,44 @@ const Dashboard = () => {
   });
   const [transactions, setTransactions] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [withdrawalRequests, setWithdrawalRequests] = useState<any[]>([]);
 
   useEffect(() => {
-    if (isAffiliateUser && user?.id) {
-      fetchReferralLinks();
-      fetchEarnings();
-      fetchTransactions();
+    if (user?.id) {
+      if (isAffiliateUser) {
+        fetchReferralLinks();
+        fetchEarnings();
+        fetchTransactions();
+        fetchWithdrawalRequests();
+      }
       fetchNotifications();
+      setupRealtimeSubscriptions();
     }
-  }, [isAffiliateUser, user?.id]);
+  }, [user?.id, isAffiliateUser]);
+
+  const setupRealtimeSubscriptions = () => {
+    // Subscribe to notifications
+    const notificationsChannel = supabase
+      .channel('notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user?.id}`
+        },
+        (payload) => {
+          console.log('New notification:', payload);
+          fetchNotifications();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(notificationsChannel);
+    };
+  };
 
   const fetchReferralLinks = async () => {
     setLoading(true);
@@ -142,7 +174,7 @@ const Dashboard = () => {
           total,
           pending,
           available: wallet?.balance || 0,
-          thisMonth: total // Simplified - could add date filtering
+          thisMonth: total
         });
       }
     } catch (error) {
@@ -181,27 +213,99 @@ const Dashboard = () => {
   };
 
   const fetchNotifications = async () => {
-    // Mock notifications for now - in real app, fetch from database
-    setNotifications([
-      {
-        id: '1',
-        title: 'New Sale!',
-        message: 'You earned ₦500 commission from a referral sale.',
-        type: 'commission',
-        read: false,
-        createdAt: new Date()
+    try {
+      const { data } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (data) {
+        setNotifications(data.map(n => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.type,
+          read: n.read,
+          createdAt: new Date(n.created_at)
+        })));
       }
-    ]);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
   };
 
-  const handleMarkNotificationAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => 
-      n.id === id ? { ...n, read: true } : n
-    ));
+  const fetchWithdrawalRequests = async () => {
+    try {
+      const { data } = await supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('affiliate_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setWithdrawalRequests(data);
+      }
+    } catch (error) {
+      console.error('Error fetching withdrawal requests:', error);
+    }
   };
 
-  const handleClearNotifications = () => {
-    setNotifications([]);
+  const handleMarkNotificationAsRead = async (id: string) => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', id);
+      
+      setNotifications(prev => prev.map(n => 
+        n.id === id ? { ...n, read: true } : n
+      ));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', user?.id);
+      
+      setNotifications([]);
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+    }
+  };
+
+  const handleWithdrawalRequest = async (amount: number, bankDetails: any) => {
+    try {
+      const { error } = await supabase
+        .from('withdrawal_requests')
+        .insert({
+          affiliate_id: user?.id,
+          amount,
+          bank_name: bankDetails.bankName,
+          account_number: bankDetails.accountNumber,
+          account_name: bankDetails.accountName
+        });
+
+      if (error) throw error;
+      
+      fetchWithdrawalRequests();
+      
+      // Create notification
+      await supabase.rpc('create_notification', {
+        target_user_id: user?.id,
+        notification_title: 'Withdrawal Request Submitted',
+        notification_message: `Your withdrawal request for ₦${amount.toFixed(2)} has been submitted and is being processed.`,
+        notification_type: 'withdrawal'
+      });
+    } catch (error) {
+      throw error;
+    }
   };
 
   const handleLogout = async () => {
@@ -243,11 +347,16 @@ const Dashboard = () => {
       
       <main className="container mx-auto py-8 px-4">
         <div className="mb-8">
-          <h1 className="text-3xl font-medium tracking-tight">Welcome back, {user?.name}!</h1>
+          <h1 className="text-3xl font-medium tracking-tight">
+            Welcome back, {user?.name}!
+            {isAdminUser && <Shield className="inline-block h-6 w-6 ml-2 text-yellow-500" />}
+          </h1>
           <p className="text-muted-foreground mt-2">
-            Your {isAffiliateUser ? 'affiliate' : 'business'} dashboard overview
+            Your {isAffiliateUser ? 'affiliate' : isBusinessUser ? 'business' : 'admin'} dashboard overview
           </p>
         </div>
+
+        {isAdminUser && <AdminPanel />}
 
         {isAffiliateUser && (
           <>
@@ -260,18 +369,13 @@ const Dashboard = () => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <TransactionHistory transactions={transactions} />
-              <GlassCard>
-                <div className="p-6 text-center">
-                  <h3 className="text-lg font-semibold mb-4">Withdrawal Information</h3>
-                  <p className="text-muted-foreground mb-6">
-                    Available Balance: ₦{earnings.available.toFixed(2)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    Withdrawal system will be available soon. Contact support for manual withdrawals.
-                  </p>
-                </div>
-              </GlassCard>
+              <WithdrawalRequest 
+                availableBalance={earnings.available}
+                onWithdrawalRequest={handleWithdrawalRequest}
+              />
             </div>
+
+            <WithdrawalHistory withdrawalRequests={withdrawalRequests} />
           </>
         )}
 
