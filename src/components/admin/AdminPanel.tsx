@@ -44,8 +44,16 @@ const AdminPanel = () => {
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select(`
-          *,
-          profiles (
+          id,
+          amount,
+          bank_name,
+          account_number,
+          account_name,
+          status,
+          created_at,
+          processed_at,
+          affiliate_id,
+          profiles:affiliate_id (
             name,
             email
           )
