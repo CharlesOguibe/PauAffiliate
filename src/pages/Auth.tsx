@@ -34,7 +34,6 @@ const Auth = () => {
   const [error, setError] = useState<string | null>(null);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
-  const [adminExists, setAdminExists] = useState(false);
 
   useEffect(() => {
     setActiveTab(location.pathname.includes('register') ? 'register' : 'login');
@@ -50,29 +49,7 @@ const Auth = () => {
       }
     };
 
-    // Check if admin user already exists
-    const checkAdminExists = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'admin')
-          .limit(1);
-        
-        if (!error && data && data.length > 0) {
-          setAdminExists(true);
-        }
-      } catch (error) {
-        console.error('Error checking admin existence:', error);
-        // If there's an error checking, assume admin exists to be safe
-        setAdminExists(true);
-      }
-    };
-
     checkUser();
-    if (location.pathname.includes('register')) {
-      checkAdminExists();
-    }
   }, [location, queryRole, navigate]);
 
   const handleTabChange = (value: string) => {
@@ -337,16 +314,6 @@ const Auth = () => {
                         >
                           Affiliate
                         </Button>
-                        {!adminExists && email === 'cjoguibe@gmail.com' && (
-                          <Button
-                            type="button"
-                            variant={role === 'admin' ? 'primary' : 'outline'}
-                            className="w-full justify-center col-span-2"
-                            onClick={() => setRole('admin')}
-                          >
-                            Admin (Special Access)
-                          </Button>
-                        )}
                       </div>
                     </div>
                   )}
@@ -355,7 +322,7 @@ const Auth = () => {
                     <>
                       <div className="bg-muted/50 p-3 rounded-md text-sm mb-2">
                         Signing up as: <span className="font-medium">
-                          {role === 'business' ? 'Business' : role === 'affiliate' ? 'Affiliate' : 'Admin'}
+                          {role === 'business' ? 'Business' : 'Affiliate'}
                         </span>
                         <button 
                           type="button" 
@@ -380,11 +347,11 @@ const Auth = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <Label htmlFor="name">{role === 'admin' ? 'Admin Name' : 'Full Name'}</Label>
+                          <Label htmlFor="name">Full Name</Label>
                           <Input
                             id="name"
                             type="text"
-                            placeholder={role === 'admin' ? 'Admin Name' : 'John Doe'}
+                            placeholder="John Doe"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
