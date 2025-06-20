@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
@@ -82,7 +83,7 @@ const Auth = () => {
     e.preventDefault();
     
     if (!role) {
-      setError('Please select a role (Business or Affiliate)');
+      setError('Please select a role (Business, Affiliate, or Admin)');
       return;
     }
     
@@ -297,7 +298,7 @@ const Auth = () => {
                   {!role && (
                     <div className="space-y-2 mb-6">
                       <Label>I am a:</Label>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 gap-3">
                         <Button
                           type="button"
                           variant={role === 'business' ? 'primary' : 'outline'}
@@ -314,6 +315,14 @@ const Auth = () => {
                         >
                           Affiliate
                         </Button>
+                        <Button
+                          type="button"
+                          variant={role === 'admin' ? 'primary' : 'outline'}
+                          className="w-full justify-center"
+                          onClick={() => setRole('admin')}
+                        >
+                          Admin
+                        </Button>
                       </div>
                     </div>
                   )}
@@ -321,7 +330,9 @@ const Auth = () => {
                   {role && (
                     <>
                       <div className="bg-muted/50 p-3 rounded-md text-sm mb-2">
-                        Signing up as: <span className="font-medium">{role === 'business' ? 'Business' : 'Affiliate'}</span>
+                        Signing up as: <span className="font-medium">
+                          {role === 'business' ? 'Business' : role === 'affiliate' ? 'Affiliate' : 'Admin'}
+                        </span>
                         <button 
                           type="button" 
                           className="text-primary text-xs ml-2 hover:underline"
@@ -345,11 +356,11 @@ const Auth = () => {
                         </div>
                       ) : (
                         <div className="space-y-2">
-                          <Label htmlFor="name">Full Name</Label>
+                          <Label htmlFor="name">{role === 'admin' ? 'Admin Name' : 'Full Name'}</Label>
                           <Input
                             id="name"
                             type="text"
-                            placeholder="John Doe"
+                            placeholder={role === 'admin' ? 'Admin Name' : 'John Doe'}
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             required
@@ -394,7 +405,8 @@ const Auth = () => {
                       </p>
                       
                       <Button 
-                        type="submit" 
+                        onClick={handleRegister}
+                        type="button" 
                         variant="primary" 
                         className="w-full mt-4"
                         isLoading={isLoading}
