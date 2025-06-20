@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -27,6 +28,7 @@ import NotificationBell from '@/components/notifications/NotificationBell';
 import WithdrawalRequest from '@/components/withdrawals/WithdrawalRequest';
 import WithdrawalHistory from '@/components/withdrawals/WithdrawalHistory';
 import AdminPanel from '@/components/admin/AdminPanel';
+import ProductList from '@/components/products/ProductList';
 import {
   Table,
   TableBody,
@@ -380,53 +382,70 @@ const Dashboard = () => {
         )}
 
         {isBusinessUser && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <GlassCard hover>
-              <div className="flex items-center space-x-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <Package className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    {isAffiliateUser ? 'Products Promoting' : 'Your Products'}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              <GlassCard hover>
+                <div className="flex items-center space-x-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <Package className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="text-2xl font-bold">
-                    {isAffiliateUser ? referralLinks.length : '0'}
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Your Products
+                    </div>
+                    <div className="text-2xl font-bold">0</div>
                   </div>
                 </div>
-              </div>
-            </GlassCard>
+              </GlassCard>
 
-            <GlassCard hover>
-              <div className="flex items-center space-x-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <LinkIcon className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    {isAffiliateUser ? 'Referral Links' : 'Total Referrals'}
+              <GlassCard hover>
+                <div className="flex items-center space-x-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <LinkIcon className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="text-2xl font-bold">
-                    {isAffiliateUser ? referralLinks.length : '0'}
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Total Referrals
+                    </div>
+                    <div className="text-2xl font-bold">0</div>
                   </div>
                 </div>
-              </div>
-            </GlassCard>
+              </GlassCard>
 
-            <GlassCard hover>
-              <div className="flex items-center space-x-4">
-                <div className="bg-primary/10 p-3 rounded-full">
-                  <DollarSign className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-muted-foreground">
-                    {isAffiliateUser ? 'Earnings' : 'Total Sales'}
+              <GlassCard hover>
+                <div className="flex items-center space-x-4">
+                  <div className="bg-primary/10 p-3 rounded-full">
+                    <DollarSign className="h-6 w-6 text-primary" />
                   </div>
-                  <div className="text-2xl font-bold">₦0.00</div>
+                  <div>
+                    <div className="text-sm font-medium text-muted-foreground">
+                      Total Sales
+                    </div>
+                    <div className="text-2xl font-bold">₦0.00</div>
+                  </div>
                 </div>
-              </div>
-            </GlassCard>
-          </div>
+              </GlassCard>
+            </div>
+
+            <div className="mb-8">
+              <ProductList limit={5} />
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/products" className="w-full sm:w-auto">
+                <Button variant="outline" className="w-full">
+                  <Package className="h-4 w-4 mr-2" />
+                  Manage All Products
+                </Button>
+              </Link>
+              <Link to="/products/create" className="w-full sm:w-auto">
+                <Button variant="primary" className="w-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Product
+                </Button>
+              </Link>
+            </div>
+          </>
         )}
 
         {isAffiliateUser && (
