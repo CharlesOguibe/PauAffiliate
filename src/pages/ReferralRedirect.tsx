@@ -117,64 +117,85 @@ const ReferralRedirect = () => {
 
     setIsPurchasing(true);
     try {
-      // Get customer details
-      const customerEmail = prompt("Please enter your email for the purchase:");
-      if (!customerEmail) {
+      // Get customer details with better validation
+      const customerEmail = prompt("Please enter your email address:");
+      if (!customerEmail || !customerEmail.includes('@')) {
+        toast({
+          title: "Invalid Email",
+          description: "Please provide a valid email address",
+          variant: "destructive",
+        });
         setIsPurchasing(false);
         return;
       }
 
       const customerName = prompt("Please enter your full name:");
-      if (!customerName) {
+      if (!customerName || customerName.trim().length < 2) {
+        toast({
+          title: "Invalid Name",
+          description: "Please provide your full name",
+          variant: "destructive",
+        });
         setIsPurchasing(false);
         return;
       }
 
-      console.log('Starting purchase process...');
+      console.log('Starting purchase process for:', {
+        productId: referralData.product.id,
+        amount: referralData.product.price,
+        customerEmail,
+        customerName
+      });
 
       // Create pending sale
       const { sale, txRef } = await createPendingSale({
         productId: referralData.product.id,
         amount: referralData.product.price,
-        customerEmail,
-        customerName,
+        customerEmail: customerEmail.trim(),
+        customerName: customerName.trim(),
       });
 
       console.log("Pending sale created:", sale, "txRef:", txRef);
 
-      // Initialize Flutterwave payment
-      const paymentResult = await initializeFlutterwavePayment({
+      // Initialize Flutterwave payment with proper configuration
+      const paymentData = {
         amount: referralData.product.price,
         currency: "NGN",
         customer: {
-          email: customerEmail,
-          name: customerName,
+          email: customerEmail.trim(),
+          name: customerName.trim(),
         },
         tx_ref: txRef,
         customizations: {
           title: referralData.product.name,
           description: `Purchase of ${referralData.product.name}`,
+          logo: referralData.product.image_url || "",
         },
-      });
+      };
 
-      console.log("Payment completed:", paymentResult);
+      console.log("Initializing Flutterwave payment with data:", paymentData);
 
-      // Show success message - webhook will handle the rest
-      toast({
-        title: "Payment Successful!",
-        description: "Your purchase has been completed. Wallets will be updated automatically.",
-        variant: "default",
-      });
+      // This should redirect to Flutterwave payment page
+      const paymentResult = await initializeFlutterwavePayment(paymentData);
 
-      console.log('Payment completed successfully. Webhook will process the payment.');
+      console.log("Payment initialization result:", paymentResult);
 
-      // Clear referral data after successful payment
-      localStorage.removeItem("referral_code");
-      localStorage.removeItem("referral_link_id");
-      localStorage.removeItem("affiliate_id");
+      // If we get here, it means payment was successful or completed
+      if (paymentResult) {
+        toast({
+          title: "Payment Successful!",
+          description: "Your purchase has been completed. Processing your order...",
+          variant: "default",
+        });
 
-      // Redirect to success page
-      navigate("/");
+        // Clear referral data after successful payment
+        localStorage.removeItem("referral_code");
+        localStorage.removeItem("referral_link_id");
+        localStorage.removeItem("affiliate_id");
+
+        // Redirect to success page or dashboard
+        navigate("/dashboard");
+      }
 
     } catch (error) {
       console.error("Purchase error:", error);
@@ -318,7 +339,7 @@ const ReferralRedirect = () => {
                 <Button
                   onClick={handlePurchase}
                   isLoading={isPurchasing}
-                  loadingText="Processing..."
+                  loadingText="Redirecting to payment..."
                   className="w-full bg-green-600 hover:bg-green-700 text-white"
                   size="lg"
                 >
