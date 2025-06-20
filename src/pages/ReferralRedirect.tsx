@@ -30,6 +30,14 @@ const ReferralRedirect = () => {
         throw new Error("No referral code provided");
       }
 
+      // Debug: Let's see all referral links in the database
+      const { data: allLinks, error: debugError } = await supabase
+        .from("referral_links")
+        .select("code, id, product_id")
+        .limit(10);
+      
+      console.log("All referral links in database:", allLinks, debugError);
+
       // First, get the referral link using maybeSingle() to handle no results gracefully
       const { data: referralLink, error: referralError } = await supabase
         .from("referral_links")
@@ -45,6 +53,7 @@ const ReferralRedirect = () => {
       }
 
       if (!referralLink) {
+        console.log(`No referral link found for code: ${code}`);
         throw new Error("Referral code not found");
       }
 
@@ -230,6 +239,10 @@ const ReferralRedirect = () => {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg text-left">
+              <p className="text-sm text-blue-800 font-medium">Debug Info:</p>
+              <p className="text-xs text-blue-600 mt-1">Check console for referral links in database</p>
+            </div>
           </div>
         </div>
       </div>
