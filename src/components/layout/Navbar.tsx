@@ -44,34 +44,36 @@ const Navbar = () => {
             <span className="text-primary">PAU</span>Affiliate
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-12">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={cn(
-                  'text-sm font-medium transition-colors hover:text-primary px-2 py-1',
-                  location.pathname === link.path ? 'text-primary' : 'text-foreground/80'
-                )}
-              >
-                {link.name}
-              </Link>
-            ))}
-          </nav>
+          {/* Desktop Navigation - moved closer to auth buttons */}
+          <div className="hidden md:flex items-center space-x-6">
+            <nav className="flex items-center space-x-6">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={cn(
+                    'text-sm font-medium transition-colors hover:text-primary px-2 py-1',
+                    location.pathname === link.path ? 'text-primary' : 'text-foreground/80'
+                  )}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </nav>
 
-          {/* Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            <Link to="/auth/login">
-              <Button variant="ghost" size="sm">
-                Log In
-              </Button>
-            </Link>
-            <Link to="/auth/register">
-              <Button variant="primary" size="sm">
-                Sign Up
-              </Button>
-            </Link>
+            {/* Auth Buttons */}
+            <div className="flex items-center space-x-4">
+              <Link to="/auth/login">
+                <Button variant="ghost" size="sm">
+                  Log In
+                </Button>
+              </Link>
+              <Link to="/auth/register">
+                <Button variant="primary" size="sm">
+                  Sign Up
+                </Button>
+              </Link>
+            </div>
           </div>
 
           {/* Mobile Menu Button */}
