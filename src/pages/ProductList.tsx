@@ -44,7 +44,7 @@ const ProductList = () => {
 
   // Redirect non-business users back to their dashboard
   React.useEffect(() => {
-    if (user?.role === 'affiliate') {
+    if (user && user.role !== 'business') {
       navigate('/dashboard');
     }
   }, [user?.role, navigate]);
@@ -203,6 +203,29 @@ const ProductList = () => {
             <p className="text-muted-foreground mb-4">Please sign in to view products</p>
             <Link to="/login">
               <Button>Sign In</Button>
+            </Link>
+          </GlassCard>
+        </main>
+      </div>
+    );
+  }
+
+  if (user.role !== 'business') {
+    return (
+      <div className="min-h-screen bg-secondary/50">
+        <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
+          <div className="container mx-auto flex justify-between items-center">
+            <Link to="/" className="text-xl font-semibold tracking-tight">
+              <span className="text-primary">PAU</span>Affiliate
+            </Link>
+          </div>
+        </header>
+        
+        <main className="container mx-auto py-8 px-4">
+          <GlassCard className="p-6 text-center">
+            <p className="text-muted-foreground mb-4">Product management is only available for business users</p>
+            <Link to="/dashboard">
+              <Button>Back to Dashboard</Button>
             </Link>
           </GlassCard>
         </main>

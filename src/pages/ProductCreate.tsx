@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProductForm from '@/components/products/ProductForm';
@@ -7,7 +8,7 @@ const ProductCreate = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Redirect non-business users
+  // Allow business users to create products
   if (user?.role !== 'business') {
     navigate('/dashboard');
     return null;
@@ -27,7 +28,8 @@ const ProductCreate = () => {
           <ProductForm 
             onCancel={() => navigate('/dashboard')}
             onSuccess={() => {
-              // The form component will handle the toast and redirect
+              // Navigate back to dashboard after successful creation
+              navigate('/dashboard');
             }}
           />
         </div>

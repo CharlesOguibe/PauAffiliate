@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Package, Plus, PenSquare, Trash } from 'lucide-react';
@@ -57,6 +56,7 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
   const { data: products, isLoading, error, refetch } = useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
+    enabled: !!user && user.role === 'business',
   });
 
   const handleDeleteProduct = async (productId: string) => {
@@ -180,6 +180,14 @@ const ProductList: React.FC<ProductListProps> = ({ limit }) => {
       setIsDeleting(false);
     }
   };
+
+  if (!user || user.role !== 'business') {
+    return (
+      <GlassCard className="p-6 text-center">
+        <p className="text-muted-foreground">Product management is only available for business users.</p>
+      </GlassCard>
+    );
+  }
 
   if (isLoading) {
     return (
