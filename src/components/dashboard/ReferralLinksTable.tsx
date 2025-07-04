@@ -36,12 +36,6 @@ const ReferralLinksTable = ({ referralLinks, copiedLinkId, onCopyToClipboard }: 
         <p className="text-muted-foreground mb-4">
           You haven't created any referral links yet. Browse products to start promoting.
         </p>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Debug Info:</strong> No referral links found in the database. 
-            Check the browser console for detailed debugging information.
-          </p>
-        </div>
         <Link to="/affiliate/browse-products">
           <Button variant="outline" size="sm">
             Create First Link
