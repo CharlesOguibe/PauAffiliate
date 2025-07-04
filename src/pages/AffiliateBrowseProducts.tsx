@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -169,15 +168,6 @@ const AffiliateBrowseProducts = () => {
           <h1 className="text-3xl font-bold">Browse Products</h1>
           <p className="text-muted-foreground mt-2">
             Create referral links for verified business products
-          </p>
-        </div>
-
-        {/* Debug Info */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-800">
-            <strong>Debug Info:</strong> Found {products?.length || 0} verified products. 
-            User has {userReferralLinks?.length || 0} existing referral links.
-            Check browser console for detailed logs.
           </p>
         </div>
 
