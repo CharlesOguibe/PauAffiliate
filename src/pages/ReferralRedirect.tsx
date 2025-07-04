@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -6,15 +7,20 @@ import { supabase } from "@/integrations/supabase/client";
 import Button from "@/components/ui/custom/Button";
 import GlassCard from "@/components/ui/custom/GlassCard";
 import NairaIcon from "@/components/ui/icons/NairaIcon";
+import PaymentForm from "@/components/payment/PaymentForm";
+import PaymentStatus from "@/components/payment/PaymentStatus";
 import { createPendingSale } from "@/utils/sales";
-import { initializeFlutterwavePayment } from "@/services/flutterwave";
+import { initializePayment, verifyPayment } from "@/services/payment";
 import { useToast } from "@/hooks/use-toast";
+
+type PaymentStep = 'product' | 'payment-form' | 'processing' | 'success' | 'error';
 
 const ReferralRedirect = () => {
   const { code } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [paymentStep, setPaymentStep] = useState<PaymentStep>('product');
+  const [paymentError, setPaymentError] = useState<string>('');
 
   const {
     data: referralData,
@@ -25,92 +31,28 @@ const ReferralRedirect = () => {
     queryFn: async () => {
       console.log("=== REFERRAL LINK DEBUGGING ===");
       console.log("Processing referral code:", code);
-      console.log("Code type:", typeof code);
-      console.log("Code length:", code?.length);
 
       if (!code) {
         throw new Error("No referral code provided");
       }
 
-      // First, let's see ALL referral links in the database
-      const { data: allLinks, error: debugError } = await supabase
-        .from("referral_links")
-        .select("*");
-      
-      console.log("ALL referral links in database:", allLinks);
-      console.log("Database query error:", debugError);
-
-      if (allLinks) {
-        console.log("Total referral links found:", allLinks.length);
-        allLinks.forEach((link, index) => {
-          console.log(`Link ${index + 1}:`, {
-            id: link.id,
-            code: link.code,
-            codeType: typeof link.code,
-            codeLength: link.code?.length,
-            exactMatch: link.code === code,
-            caseInsensitiveMatch: link.code?.toLowerCase() === code?.toLowerCase()
-          });
-        });
-      }
-
       // Try exact match first
-      console.log("Attempting exact match search...");
-      const { data: exactMatch, error: exactError } = await supabase
+      const { data: referralLink, error: linkError } = await supabase
         .from("referral_links")
         .select("*")
         .eq("code", code)
         .maybeSingle();
 
-      console.log("Exact match result:", exactMatch);
-      console.log("Exact match error:", exactError);
+      console.log("Referral link query result:", referralLink, linkError);
 
-      let referralLink = exactMatch;
-
-      // If no exact match, try case-insensitive search
-      if (!referralLink && !exactError) {
-        console.log("Attempting case-insensitive search...");
-        const { data: caseInsensitiveResults, error: caseError } = await supabase
-          .from("referral_links")
-          .select("*")
-          .ilike("code", code)
-          .limit(1)
-          .maybeSingle();
-
-        console.log("Case-insensitive search result:", caseInsensitiveResults);
-        console.log("Case-insensitive search error:", caseError);
-        
-        if (!caseError) {
-          referralLink = caseInsensitiveResults;
-        }
-      }
-
-      // Try a broader search to see if there are similar codes
-      if (!referralLink) {
-        console.log("Attempting wildcard search...");
-        const { data: wildcardResults, error: wildcardError } = await supabase
-          .from("referral_links")
-          .select("*")
-          .ilike("code", `%${code}%`)
-          .limit(5);
-
-        console.log("Wildcard search results:", wildcardResults);
-        console.log("Wildcard search error:", wildcardError);
-      }
-
-      if (exactError) {
-        console.error("Database error during exact match:", exactError);
-        throw new Error(`Database error: ${exactError.message}`);
+      if (linkError) {
+        console.error("Database error:", linkError);
+        throw new Error(`Database error: ${linkError.message}`);
       }
 
       if (!referralLink) {
-        console.log(`=== NO REFERRAL LINK FOUND ===`);
-        console.log(`Searched for code: "${code}"`);
-        console.log(`Available codes:`, allLinks?.map(l => l.code));
         throw new Error("Referral code not found");
       }
-
-      console.log("Found referral link:", referralLink);
 
       // Get the product details
       const { data: product, error: productError } = await supabase
@@ -130,9 +72,7 @@ const ReferralRedirect = () => {
         throw new Error("Product not found or no longer available");
       }
 
-      console.log("Found referral link and product:", { referralLink, product });
-
-      // Update click count (don't fail if this doesn't work)
+      // Update click count
       try {
         const { error: updateError } = await supabase
           .from("referral_links")
@@ -146,7 +86,7 @@ const ReferralRedirect = () => {
         console.log("Could not update clicks, but continuing:", updateError);
       }
 
-      // Store referral info in localStorage for the purchase
+      // Store referral info in localStorage
       localStorage.setItem("referral_code", code);
       localStorage.setItem("referral_link_id", referralLink.id);
       localStorage.setItem("affiliate_id", referralLink.affiliate_id);
@@ -160,7 +100,11 @@ const ReferralRedirect = () => {
     retry: false,
   });
 
-  const handlePurchase = async () => {
+  const handleStartPayment = () => {
+    setPaymentStep('payment-form');
+  };
+
+  const handlePaymentFormSubmit = async (customerData: { email: string; fullName: string; phoneNumber?: string }) => {
     if (!referralData?.product) {
       toast({
         title: "Error",
@@ -170,55 +114,34 @@ const ReferralRedirect = () => {
       return;
     }
 
-    setIsPurchasing(true);
+    setPaymentStep('processing');
+
     try {
-      // Get customer details with better validation
-      const customerEmail = prompt("Please enter your email address:");
-      if (!customerEmail || !customerEmail.includes('@')) {
-        toast({
-          title: "Invalid Email",
-          description: "Please provide a valid email address",
-          variant: "destructive",
-        });
-        setIsPurchasing(false);
-        return;
-      }
-
-      const customerName = prompt("Please enter your full name:");
-      if (!customerName || customerName.trim().length < 2) {
-        toast({
-          title: "Invalid Name",
-          description: "Please provide your full name",
-          variant: "destructive",
-        });
-        setIsPurchasing(false);
-        return;
-      }
-
-      console.log('Starting purchase process for:', {
+      console.log('Starting payment process for:', {
         productId: referralData.product.id,
         amount: referralData.product.price,
-        customerEmail,
-        customerName
+        customerEmail: customerData.email,
+        customerName: customerData.fullName
       });
 
       // Create pending sale
       const { sale, txRef } = await createPendingSale({
         productId: referralData.product.id,
         amount: referralData.product.price,
-        customerEmail: customerEmail.trim(),
-        customerName: customerName.trim(),
+        customerEmail: customerData.email,
+        customerName: customerData.fullName,
       });
 
       console.log("Pending sale created:", sale, "txRef:", txRef);
 
-      // Initialize Flutterwave payment with proper configuration
+      // Initialize payment
       const paymentData = {
         amount: referralData.product.price,
         currency: "NGN",
         customer: {
-          email: customerEmail.trim(),
-          name: customerName.trim(),
+          email: customerData.email,
+          name: customerData.fullName,
+          phone_number: customerData.phoneNumber,
         },
         tx_ref: txRef,
         customizations: {
@@ -228,52 +151,60 @@ const ReferralRedirect = () => {
         },
       };
 
-      console.log("Initializing Flutterwave payment with data:", paymentData);
+      console.log("Initializing payment with data:", paymentData);
 
-      // This should redirect to Flutterwave payment page
-      const paymentResult = await initializeFlutterwavePayment(paymentData);
+      const paymentResult = await initializePayment(paymentData);
+      console.log("Payment result:", paymentResult);
 
-      console.log("Payment initialization result:", paymentResult);
+      // Verify payment
+      const verificationResult = await verifyPayment(paymentResult.transaction_id, paymentResult.tx_ref);
+      console.log("Payment verification result:", verificationResult);
 
-      // If we get here, it means payment was successful or completed
-      if (paymentResult) {
-        toast({
-          title: "Payment Successful!",
-          description: "Your purchase has been completed. Processing your order...",
-          variant: "default",
-        });
+      setPaymentStep('success');
+      
+      toast({
+        title: "Payment Successful!",
+        description: "Your purchase has been completed successfully.",
+      });
 
-        // Clear referral data after successful payment
-        localStorage.removeItem("referral_code");
-        localStorage.removeItem("referral_link_id");
-        localStorage.removeItem("affiliate_id");
-
-        // Redirect to success page or dashboard
-        navigate("/dashboard");
-      }
+      // Clear referral data
+      localStorage.removeItem("referral_code");
+      localStorage.removeItem("referral_link_id");
+      localStorage.removeItem("affiliate_id");
 
     } catch (error) {
-      console.error("Purchase error:", error);
+      console.error("Payment error:", error);
+      setPaymentError(error instanceof Error ? error.message : "Payment failed. Please try again.");
+      setPaymentStep('error');
+      
       toast({
         title: "Payment Failed",
-        description:
-          error instanceof Error
-            ? error.message
-            : "There was an error processing your payment. Please try again.",
+        description: error instanceof Error ? error.message : "There was an error processing your payment.",
         variant: "destructive",
       });
-    } finally {
-      setIsPurchasing(false);
     }
+  };
+
+  const handleRetry = () => {
+    setPaymentStep('payment-form');
+    setPaymentError('');
+  };
+
+  const handleSuccess = () => {
+    navigate("/");
+  };
+
+  const handleCancel = () => {
+    setPaymentStep('product');
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-secondary/50">
-        <div className="text-center">
-          <div className="h-8 w-8 mx-auto mb-4 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
-          <p className="text-muted-foreground">Loading product...</p>
-        </div>
+        <PaymentStatus 
+          status="loading" 
+          message="Loading product information..." 
+        />
       </div>
     );
   }
@@ -285,43 +216,18 @@ const ReferralRedirect = () => {
       <div className="min-h-screen flex items-center justify-center bg-secondary/50">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold mb-2">
-            Invalid Referral Link
-          </h1>
+          <h1 className="text-2xl font-bold mb-2">Invalid Referral Link</h1>
           <p className="text-muted-foreground mb-4">
-            This referral code is not valid or the product may no longer be
-            available.
+            This referral code is not valid or the product may no longer be available.
           </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            Referral Code: <span className="font-mono font-bold">{code}</span>
-          </p>
-          {error && (
-            <p className="text-sm text-red-600 mb-4">
-              Error: {error.message}
-            </p>
-          )}
           <div className="space-y-2">
-            <Button
-              onClick={() => navigate("/")}
-              className="w-full"
-            >
+            <Button onClick={() => navigate("/")} className="w-full">
               Go to Homepage
             </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate(-1)}
-              className="w-full"
-            >
+            <Button variant="outline" onClick={() => navigate(-1)} className="w-full">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg text-left">
-              <p className="text-sm text-blue-800 font-medium">Debugging Info:</p>
-              <p className="text-xs text-blue-600 mt-1">
-                Check the browser console for detailed database query results.
-                This will show all available referral codes and search attempts.
-              </p>
-            </div>
           </div>
         </div>
       </div>
@@ -342,71 +248,92 @@ const ReferralRedirect = () => {
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
             </button>
-            <div className="text-center">
-              <h1 className="text-3xl font-bold">
-                {product.name}
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Special product recommendation
-              </p>
-            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Product Image */}
-            <div>
-              {product.image_url ? (
-                <GlassCard className="overflow-hidden">
-                  <img
-                    src={product.image_url}
-                    alt={product.name}
-                    className="w-full h-96 object-cover"
-                  />
-                </GlassCard>
-              ) : (
-                <GlassCard className="h-96 flex items-center justify-center bg-muted/50">
-                  <Package className="h-24 w-24 text-muted-foreground" />
-                </GlassCard>
-              )}
-            </div>
+          {paymentStep === 'product' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* Product Image */}
+              <div>
+                {product.image_url ? (
+                  <GlassCard className="overflow-hidden">
+                    <img
+                      src={product.image_url}
+                      alt={product.name}
+                      className="w-full h-96 object-cover"
+                    />
+                  </GlassCard>
+                ) : (
+                  <GlassCard className="h-96 flex items-center justify-center bg-muted/50">
+                    <Package className="h-24 w-24 text-muted-foreground" />
+                  </GlassCard>
+                )}
+              </div>
 
-            {/* Product Details */}
-            <div>
-              <GlassCard>
-                <div className="mb-6">
-                  <h2 className="text-2xl font-bold mb-2">
-                    {product.name}
-                  </h2>
-                  <p className="text-muted-foreground whitespace-pre-line">
-                    {product.description}
-                  </p>
-                </div>
+              {/* Product Details */}
+              <div>
+                <GlassCard>
+                  <div className="mb-6">
+                    <h2 className="text-2xl font-bold mb-2">{product.name}</h2>
+                    <p className="text-muted-foreground whitespace-pre-line">
+                      {product.description}
+                    </p>
+                  </div>
 
-                <div className="space-y-4 mb-6">
-                  <div className="flex items-center p-4 bg-background/50 rounded-lg">
-                    <NairaIcon className="h-6 w-6 text-primary mr-3" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Price</p>
-                      <p className="text-2xl font-bold">
-                        ₦{product.price.toFixed(2)}
-                      </p>
+                  <div className="space-y-4 mb-6">
+                    <div className="flex items-center p-4 bg-background/50 rounded-lg">
+                      <NairaIcon className="h-6 w-6 text-primary mr-3" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">Price</p>
+                        <p className="text-2xl font-bold">₦{product.price.toFixed(2)}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <Button
-                  onClick={handlePurchase}
-                  isLoading={isPurchasing}
-                  loadingText="Redirecting to payment..."
-                  className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  size="lg"
-                >
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  Purchase Now - ₦{product.price.toFixed(2)}
-                </Button>
-              </GlassCard>
+                  <Button
+                    onClick={handleStartPayment}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    size="lg"
+                  >
+                    <ShoppingCart className="h-5 w-5 mr-2" />
+                    Purchase Now - ₦{product.price.toFixed(2)}
+                  </Button>
+                </GlassCard>
+              </div>
             </div>
-          </div>
+          )}
+
+          {paymentStep === 'payment-form' && (
+            <PaymentForm
+              productName={product.name}
+              amount={product.price}
+              isLoading={false}
+              onSubmit={handlePaymentFormSubmit}
+              onCancel={handleCancel}
+            />
+          )}
+
+          {paymentStep === 'processing' && (
+            <PaymentStatus
+              status="loading"
+              message="Processing your payment. Please wait..."
+            />
+          )}
+
+          {paymentStep === 'success' && (
+            <PaymentStatus
+              status="success"
+              message="Your payment has been processed successfully! Thank you for your purchase."
+              onContinue={handleSuccess}
+            />
+          )}
+
+          {paymentStep === 'error' && (
+            <PaymentStatus
+              status="error"
+              message={paymentError}
+              onRetry={handleRetry}
+            />
+          )}
         </div>
       </div>
     </div>
