@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -64,12 +63,12 @@ const ReferralRedirect = () => {
         throw new Error("Referral code not found");
       }
 
-      // Now get the product details
+      // Now get the product details - explicitly specify the foreign key relationship
       const { data: product, error: productError } = await supabase
         .from("products")
         .select(`
           *,
-          business_profiles (
+          business_profiles!products_business_id_fkey (
             name,
             verified
           )
