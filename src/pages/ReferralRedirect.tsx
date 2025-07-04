@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -41,16 +42,7 @@ const ReferralRedirect = () => {
       
       const { data: referralLink, error: linkError } = await supabase
         .from("referral_links")
-        .select(`
-          *,
-          products (
-            *,
-            business_profiles (
-              name,
-              verified
-            )
-          )
-        `)
+        .select("*")
         .eq("code", code)
         .maybeSingle();
 
@@ -72,14 +64,34 @@ const ReferralRedirect = () => {
         throw new Error("Referral code not found");
       }
 
-      if (!referralLink.products) {
+      // Now get the product details
+      const { data: product, error: productError } = await supabase
+        .from("products")
+        .select(`
+          *,
+          business_profiles (
+            name,
+            verified
+          )
+        `)
+        .eq("id", referralLink.product_id)
+        .maybeSingle();
+
+      console.log("Product query result:", { product, productError });
+
+      if (productError) {
+        console.error("Database error fetching product:", productError);
+        throw new Error(`Product database error: ${productError.message}`);
+      }
+
+      if (!product) {
         console.error("Product not found for referral link:", referralLink);
         throw new Error("Product not found or no longer available");
       }
 
       // Check if the business is verified
-      if (!referralLink.products.business_profiles?.verified) {
-        console.warn("Business not verified:", referralLink.products.business_profiles);
+      if (!product.business_profiles?.verified) {
+        console.warn("Business not verified:", product.business_profiles);
         throw new Error("This product is from an unverified business and is not available for purchase");
       }
 
@@ -106,14 +118,14 @@ const ReferralRedirect = () => {
 
       console.log("Referral data processed successfully:", {
         linkId: referralLink.id,
-        productId: referralLink.products.id,
-        productName: referralLink.products.name,
-        businessVerified: referralLink.products.business_profiles?.verified
+        productId: product.id,
+        productName: product.name,
+        businessVerified: product.business_profiles?.verified
       });
 
       return {
         ...referralLink,
-        product: referralLink.products
+        product: product
       };
     },
     enabled: !!code,
