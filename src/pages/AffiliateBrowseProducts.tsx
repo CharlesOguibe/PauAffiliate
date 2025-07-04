@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -23,7 +24,7 @@ const AffiliateBrowseProducts = () => {
         .from('products')
         .select(`
           *,
-          business_profiles!fk_products_business!inner(name, verified)
+          business_profiles!products_business_id_fkey(name, verified)
         `)
         .eq('business_profiles.verified', true);
 
