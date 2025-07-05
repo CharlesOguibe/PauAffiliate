@@ -19,6 +19,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
+// Type for database function responses
+interface DatabaseFunctionResponse {
+  success: boolean;
+  error?: string;
+  message?: string;
+}
+
 const AdminPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -144,8 +151,11 @@ const AdminPanel = () => {
 
       if (error) throw error;
 
-      if (!data.success) {
-        throw new Error(data.error);
+      // Type cast the response
+      const response = data as DatabaseFunctionResponse;
+
+      if (!response.success) {
+        throw new Error(response.error);
       }
 
       // Send email notification
@@ -176,7 +186,7 @@ const AdminPanel = () => {
 
       toast({
         title: approve ? "Withdrawal Approved" : "Withdrawal Rejected",
-        description: data.message,
+        description: response.message,
       });
 
       // Clear the notes for this request
@@ -213,8 +223,11 @@ const AdminPanel = () => {
 
       if (error) throw error;
 
-      if (!data.success) {
-        throw new Error(data.error);
+      // Type cast the response
+      const response = data as DatabaseFunctionResponse;
+
+      if (!response.success) {
+        throw new Error(response.error);
       }
 
       // Send email notification
@@ -233,7 +246,7 @@ const AdminPanel = () => {
 
       toast({
         title: "Withdrawal Completed",
-        description: data.message,
+        description: response.message,
       });
 
       // Clear the notes for this request

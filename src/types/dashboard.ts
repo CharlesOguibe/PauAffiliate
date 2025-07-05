@@ -9,6 +9,7 @@ export interface WithdrawalRequest {
   created_at: string;
   processed_at?: string;
   affiliate_id: string;
+  notes?: string;
   profiles: {
     name: string;
     email: string;
