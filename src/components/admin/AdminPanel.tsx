@@ -56,57 +56,55 @@ const AdminPanel = () => {
 
   const fetchWithdrawalRequests = async () => {
     try {
-      // Use the correct foreign key hint - withdrawal_requests.affiliate_id references profiles.id
-      const { data, error } = await supabase
+      // First get withdrawal requests
+      const { data: withdrawalData, error: withdrawalError } = await supabase
         .from('withdrawal_requests')
-        .select(`
-          id,
-          affiliate_id,
-          amount,
-          bank_name,
-          account_number,
-          account_name,
-          status,
-          created_at,
-          processed_at,
-          processed_by,
-          notes,
-          profiles!withdrawal_requests_affiliate_id_fkey (
-            email
-          )
-        `)
+        .select('*')
         .in('status', ['pending', 'approved'])
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
+      if (withdrawalError) {
+        console.error('Withdrawal query error:', withdrawalError);
+        throw withdrawalError;
       }
-      
-      console.log('Raw withdrawal data:', data);
-      
-      // Check if we have any data at all
-      if (!data || data.length === 0) {
+
+      console.log('Withdrawal requests:', withdrawalData);
+
+      if (!withdrawalData || withdrawalData.length === 0) {
         console.log('No withdrawal requests found');
         setPendingWithdrawals([]);
         setApprovedWithdrawals([]);
         return;
       }
+
+      // Get unique affiliate IDs
+      const affiliateIds = [...new Set(withdrawalData.map(req => req.affiliate_id))];
       
-      // Transform and separate the data with better error handling
-      const transformedData: WithdrawalRequest[] = data.map(req => {
-        console.log('Processing request:', req.id);
-        console.log('Affiliate ID:', req.affiliate_id);
-        console.log('Profile data:', req.profiles);
-        
-        // Check if we have profile data
-        let profileEmail = 'No Email Available';
-        
-        if (req.profiles && req.profiles.email) {
-          profileEmail = req.profiles.email;
-        } else {
-          console.warn('No profile data found for request:', req.id, 'affiliate_id:', req.affiliate_id);
-        }
+      // Fetch profiles for these affiliates
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .in('id', affiliateIds);
+
+      if (profilesError) {
+        console.error('Profiles query error:', profilesError);
+        throw profilesError;
+      }
+
+      console.log('Profiles data:', profilesData);
+
+      // Create a map of affiliate ID to email
+      const emailMap = new Map();
+      if (profilesData) {
+        profilesData.forEach(profile => {
+          emailMap.set(profile.id, profile.email);
+        });
+      }
+
+      // Transform the data with proper email lookup
+      const transformedData: WithdrawalRequest[] = withdrawalData.map(req => {
+        const email = emailMap.get(req.affiliate_id) || 'No Email Available';
+        console.log(`Request ${req.id}: affiliate_id ${req.affiliate_id} -> email: ${email}`);
         
         return {
           id: req.id,
@@ -121,12 +119,12 @@ const AdminPanel = () => {
           notes: req.notes,
           profiles: {
             name: 'Affiliate',
-            email: profileEmail
+            email: email
           }
         };
       });
       
-      console.log('Transformed withdrawal data:', transformedData);
+      console.log('Final transformed withdrawal data:', transformedData);
       
       setPendingWithdrawals(transformedData.filter(req => req.status === 'pending'));
       setApprovedWithdrawals(transformedData.filter(req => req.status === 'approved'));
