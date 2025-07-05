@@ -57,20 +57,12 @@ const AdminPanel = () => {
 
   const fetchWithdrawalRequests = async () => {
     try {
+      // First, let's try a simpler query to see what we get
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select(`
-          id,
-          amount,
-          bank_name,
-          account_number,
-          account_name,
-          status,
-          created_at,
-          processed_at,
-          affiliate_id,
-          notes,
-          profiles!withdrawal_requests_affiliate_id_fkey (
+          *,
+          profiles (
             name,
             email
           )
@@ -85,13 +77,30 @@ const AdminPanel = () => {
       
       console.log('Raw withdrawal data:', data);
       
+      // Check if we have any data at all
+      if (!data || data.length === 0) {
+        console.log('No withdrawal requests found');
+        setPendingWithdrawals([]);
+        setApprovedWithdrawals([]);
+        return;
+      }
+      
       // Transform and separate the data with better error handling
-      const transformedData: WithdrawalRequest[] = (data || []).map(req => {
-        console.log('Processing request:', req.id, 'Profile data:', req.profiles);
+      const transformedData: WithdrawalRequest[] = data.map(req => {
+        console.log('Processing request:', req.id);
+        console.log('Affiliate ID:', req.affiliate_id);
+        console.log('Profile data:', req.profiles);
         
-        // Handle the case where profiles might be null or the join failed
-        const profileName = req.profiles?.name || 'Unknown User';
-        const profileEmail = req.profiles?.email || 'No Email Available';
+        // Check if we have profile data
+        let profileName = 'Unknown User';
+        let profileEmail = 'No Email Available';
+        
+        if (req.profiles) {
+          profileName = req.profiles.name || 'Unknown User';
+          profileEmail = req.profiles.email || 'No Email Available';
+        } else {
+          console.warn('No profile data found for request:', req.id, 'affiliate_id:', req.affiliate_id);
+        }
         
         return {
           id: req.id,
