@@ -3,13 +3,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { Resend } from 'npm:resend@4.0.0'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import React from 'npm:react@18.3.1'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { WithdrawalRequestEmail } from './_templates/withdrawal-request.tsx'
 import { WithdrawalStatusEmail } from './_templates/withdrawal-status.tsx'
 import { SaleNotificationEmail } from './_templates/sale-notification.tsx'
 import { GeneralNotificationEmail } from './_templates/general-notification.tsx'
-
-const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -33,10 +30,23 @@ serve(async (req) => {
 
   try {
     // Check if RESEND_API_KEY exists
-    if (!Deno.env.get('RESEND_API_KEY')) {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
       console.error('RESEND_API_KEY is not set')
-      throw new Error('RESEND_API_KEY is not configured')
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'RESEND_API_KEY is not configured',
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
+
+    const resend = new Resend(resendApiKey)
 
     const requestBody = await req.json()
     console.log('Request body received:', JSON.stringify(requestBody, null, 2))
@@ -126,7 +136,17 @@ serve(async (req) => {
       }
     } catch (renderError) {
       console.error('Error rendering email template:', renderError)
-      throw new Error(`Failed to render email template: ${renderError.message}`)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Failed to render email template: ${renderError.message}`,
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     console.log('Email HTML rendered successfully, sending via Resend...')
@@ -134,7 +154,7 @@ serve(async (req) => {
     console.log('Subject:', subject)
 
     const { data: emailData, error: resendError } = await resend.emails.send({
-      from: 'PAUAffiliate <notifications@resend.dev>',
+      from: 'PAUAffiliate <onboarding@resend.dev>',
       to: [userEmail],
       subject,
       html: emailHtml,
@@ -142,7 +162,17 @@ serve(async (req) => {
 
     if (resendError) {
       console.error('Resend error:', resendError)
-      throw new Error(`Resend error: ${resendError.message || 'Unknown resend error'}`)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Resend error: ${resendError.message || 'Unknown resend error'}`,
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     console.log('Email sent successfully to:', userEmail, 'Email ID:', emailData?.id)
