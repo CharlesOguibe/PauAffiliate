@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -57,13 +56,12 @@ const AdminPanel = () => {
 
   const fetchWithdrawalRequests = async () => {
     try {
-      // First, let's try a simpler query to see what we get
+      // Use the specific foreign key column hint to get the affiliate's profile
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select(`
           *,
-          profiles (
-            name,
+          profiles!withdrawal_requests_affiliate_id_fkey (
             email
           )
         `)
@@ -92,11 +90,9 @@ const AdminPanel = () => {
         console.log('Profile data:', req.profiles);
         
         // Check if we have profile data
-        let profileName = 'Unknown User';
         let profileEmail = 'No Email Available';
         
         if (req.profiles) {
-          profileName = req.profiles.name || 'Unknown User';
           profileEmail = req.profiles.email || 'No Email Available';
         } else {
           console.warn('No profile data found for request:', req.id, 'affiliate_id:', req.affiliate_id);
@@ -114,7 +110,7 @@ const AdminPanel = () => {
           affiliate_id: req.affiliate_id,
           notes: req.notes,
           profiles: {
-            name: profileName,
+            name: 'Affiliate',
             email: profileEmail
           }
         };
@@ -188,7 +184,7 @@ const AdminPanel = () => {
         if (approve) {
           await sendGeneralNotificationEmail(
             request.profiles.email,
-            request.profiles.name,
+            'Affiliate',
             {
               title: 'Withdrawal Approved',
               message: `Your withdrawal request for ₦${request.amount.toFixed(2)} has been approved and is being processed.`,
@@ -198,7 +194,7 @@ const AdminPanel = () => {
         } else {
           await sendGeneralNotificationEmail(
             request.profiles.email,
-            request.profiles.name,
+            'Affiliate',
             {
               title: 'Withdrawal Rejected',
               message: `Your withdrawal request for ₦${request.amount.toFixed(2)} has been rejected. ${notes ? 'Reason: ' + notes : ''}`,
@@ -259,7 +255,7 @@ const AdminPanel = () => {
       if (request && request.profiles.email !== 'No Email Available') {
         await sendGeneralNotificationEmail(
           request.profiles.email,
-          request.profiles.name,
+          'Affiliate',
           {
             title: 'Withdrawal Completed',
             message: `Your withdrawal of ₦${request.amount.toFixed(2)} has been completed and sent to your bank account.`,
@@ -442,7 +438,7 @@ const AdminPanel = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Affiliate</TableHead>
+                  <TableHead>Affiliate Email</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Bank Details</TableHead>
                   <TableHead>Requested</TableHead>
@@ -455,8 +451,7 @@ const AdminPanel = () => {
                   <TableRow key={request.id}>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="font-medium">{request.profiles.name}</div>
-                        <div className="text-muted-foreground">{request.profiles.email}</div>
+                        <div className="font-medium">{request.profiles.email}</div>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">
@@ -527,7 +522,7 @@ const AdminPanel = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Affiliate</TableHead>
+                  <TableHead>Affiliate Email</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Bank Details</TableHead>
                   <TableHead>Approved</TableHead>
@@ -541,8 +536,7 @@ const AdminPanel = () => {
                   <TableRow key={request.id}>
                     <TableCell>
                       <div className="text-sm">
-                        <div className="font-medium">{request.profiles.name}</div>
-                        <div className="text-muted-foreground">{request.profiles.email}</div>
+                        <div className="font-medium">{request.profiles.email}</div>
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">
