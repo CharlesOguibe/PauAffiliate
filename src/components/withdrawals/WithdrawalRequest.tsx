@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { Banknote, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { sendWithdrawalRequestEmail } from '@/utils/emailNotifications';
 
 interface WithdrawalRequestProps {
   availableBalance: number;
@@ -71,11 +71,27 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
     setIsSubmitting(true);
     try {
       await onWithdrawalRequest(withdrawalAmount, bankDetails);
+      
+      // Send email notification
+      const user = JSON.parse(localStorage.getItem('sb-dbxgdgpmvobmrdlibauf-auth-token') || '{}');
+      if (user?.user?.email && user?.user?.user_metadata?.name) {
+        await sendWithdrawalRequestEmail(
+          user.user.email,
+          user.user.user_metadata.name,
+          {
+            amount: withdrawalAmount,
+            bankName: bankDetails.bankName,
+            accountNumber: bankDetails.accountNumber,
+            accountName: bankDetails.accountName
+          }
+        );
+      }
+      
       setAmount('');
       setBankDetails({ bankName: '', accountNumber: '', accountName: '' });
       toast({
         title: "Withdrawal Requested",
-        description: "Your withdrawal request has been submitted and will be processed within 24-48 hours.",
+        description: "Your withdrawal request has been submitted and will be processed within 24-48 hours. Check your email for confirmation.",
       });
     } catch (error) {
       toast({
