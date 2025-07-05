@@ -151,8 +151,8 @@ const AdminPanel = () => {
 
       if (error) throw error;
 
-      // Type cast the response
-      const response = data as DatabaseFunctionResponse;
+      // Type cast the response (cast to unknown first as suggested by TypeScript)
+      const response = data as unknown as DatabaseFunctionResponse;
 
       if (!response.success) {
         throw new Error(response.error);
@@ -223,8 +223,8 @@ const AdminPanel = () => {
 
       if (error) throw error;
 
-      // Type cast the response
-      const response = data as DatabaseFunctionResponse;
+      // Type cast the response (cast to unknown first as suggested by TypeScript)
+      const response = data as unknown as DatabaseFunctionResponse;
 
       if (!response.success) {
         throw new Error(response.error);
