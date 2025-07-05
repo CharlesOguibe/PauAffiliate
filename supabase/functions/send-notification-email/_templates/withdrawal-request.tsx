@@ -1,4 +1,3 @@
-
 import {
   Body,
   Container,
@@ -45,7 +44,7 @@ export const WithdrawalRequestEmail = ({
           <Text style={detail}><strong>Account Name:</strong> {accountName}</Text>
         </div>
         <Text style={text}>
-          Your withdrawal will be processed within 24-48 hours. You'll receive another email once the payment has been completed.
+          <strong>Withdrawals are processed within 24-48 hours. You'll receive email notifications about status updates.</strong>
         </Text>
         <Text style={footer}>
           Best regards,<br />

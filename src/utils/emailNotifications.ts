@@ -1,8 +1,7 @@
-
 import { supabase } from '@/integrations/supabase/client'
 
 interface EmailNotificationData {
-  type: 'withdrawal_request' | 'sale_notification' | 'general'
+  type: 'withdrawal_request' | 'withdrawal_status' | 'sale_notification' | 'general'
   userEmail: string
   userName: string
   data: any
@@ -43,6 +42,26 @@ export const sendWithdrawalRequestEmail = async (
     userEmail,
     userName,
     data: withdrawalData
+  })
+}
+
+export const sendWithdrawalStatusEmail = async (
+  userEmail: string,
+  userName: string,
+  statusData: {
+    amount: number
+    status: 'approved' | 'rejected' | 'completed'
+    bankName: string
+    accountNumber: string
+    accountName: string
+    notes?: string
+  }
+) => {
+  return sendEmailNotification({
+    type: 'withdrawal_status',
+    userEmail,
+    userName,
+    data: statusData
   })
 }
 

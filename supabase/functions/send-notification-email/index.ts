@@ -1,10 +1,10 @@
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { Resend } from 'npm:resend@4.0.0'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import React from 'npm:react@18.3.1'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { WithdrawalRequestEmail } from './_templates/withdrawal-request.tsx'
+import { WithdrawalStatusEmail } from './_templates/withdrawal-status.tsx'
 import { SaleNotificationEmail } from './_templates/sale-notification.tsx'
 import { GeneralNotificationEmail } from './_templates/general-notification.tsx'
 
@@ -20,7 +20,7 @@ const corsHeaders = {
 }
 
 interface NotificationEmailRequest {
-  type: 'withdrawal_request' | 'sale_notification' | 'general'
+  type: 'withdrawal_request' | 'withdrawal_status' | 'sale_notification' | 'general'
   userEmail: string
   userName: string
   data: any
@@ -52,6 +52,21 @@ serve(async (req) => {
           })
         )
         subject = 'Withdrawal Request Submitted - PAUAffiliate'
+        break
+
+      case 'withdrawal_status':
+        emailHtml = await renderAsync(
+          React.createElement(WithdrawalStatusEmail, {
+            userName,
+            amount: data.amount,
+            status: data.status,
+            bankName: data.bankName,
+            accountNumber: data.accountNumber,
+            accountName: data.accountName,
+            notes: data.notes,
+          })
+        )
+        subject = `Withdrawal ${data.status.charAt(0).toUpperCase() + data.status.slice(1)} - PAUAffiliate`
         break
 
       case 'sale_notification':

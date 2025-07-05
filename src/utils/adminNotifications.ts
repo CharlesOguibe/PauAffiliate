@@ -1,6 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
-import { sendGeneralNotificationEmail } from './emailNotifications';
+import { sendGeneralNotificationEmail, sendWithdrawalStatusEmail } from './emailNotifications';
 
 export const notifyAdminsOfWithdrawalRequest = async (
   withdrawalAmount: number,
@@ -45,5 +45,49 @@ export const notifyAdminsOfWithdrawalRequest = async (
     console.log(`Withdrawal request notification sent to ${adminUsers.length} admin(s)`);
   } catch (error) {
     console.error('Error notifying admins of withdrawal request:', error);
+  }
+};
+
+export const notifyAffiliateOfWithdrawalStatus = async (
+  affiliateId: string,
+  withdrawalAmount: number,
+  status: 'approved' | 'rejected' | 'completed',
+  bankDetails: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  },
+  notes?: string
+) => {
+  try {
+    // Get affiliate details
+    const { data: affiliate, error } = await supabase
+      .from('profiles')
+      .select('email, name')
+      .eq('id', affiliateId)
+      .single();
+
+    if (error || !affiliate) {
+      console.error('Error fetching affiliate details:', error);
+      return;
+    }
+
+    // Send withdrawal status email to affiliate
+    await sendWithdrawalStatusEmail(
+      affiliate.email,
+      affiliate.name || 'User',
+      {
+        amount: withdrawalAmount,
+        status,
+        bankName: bankDetails.bankName,
+        accountNumber: bankDetails.accountNumber,
+        accountName: bankDetails.accountName,
+        notes
+      }
+    );
+
+    console.log(`Withdrawal status email sent to affiliate: ${affiliate.email}`);
+  } catch (error) {
+    console.error('Error notifying affiliate of withdrawal status:', error);
   }
 };
