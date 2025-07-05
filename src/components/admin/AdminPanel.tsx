@@ -56,12 +56,22 @@ const AdminPanel = () => {
 
   const fetchWithdrawalRequests = async () => {
     try {
-      // Use the specific foreign key column hint to get the affiliate's profile
+      // Try a direct join approach instead of using foreign key hints
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select(`
-          *,
-          profiles!withdrawal_requests_affiliate_id_fkey (
+          id,
+          affiliate_id,
+          amount,
+          bank_name,
+          account_number,
+          account_name,
+          status,
+          created_at,
+          processed_at,
+          processed_by,
+          notes,
+          profiles:affiliate_id (
             email
           )
         `)
