@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
