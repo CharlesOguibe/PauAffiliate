@@ -1,1 +1,155 @@
+
 project_id = "dbxgdgpmvobmrdlibauf"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+
+[db.pooler]
+enabled = false
+port = 54329
+pool_mode = "transaction"
+default_pool_size = 20
+max_client_conn = 100
+
+[realtime]
+enabled = true
+port = 54323
+ip_version = "ipv4"
+
+[studio]
+enabled = true
+port = 54324
+api_url = "http://127.0.0.1:54321"
+openai_api_key = "env(OPENAI_API_KEY)"
+
+[inbucket]
+enabled = true
+port = 54325
+smtp_port = 54326
+pop3_port = 54327
+
+[storage]
+enabled = true
+port = 54326
+file_size_limit = "50MiB"
+s3_enabled = false
+
+[analytics]
+enabled = false
+port = 54327
+vector_port = 54328
+gcp_project_id = ""
+gcp_project_number = ""
+gcp_jwt_path = "supabase/gcp.json"
+
+[functions.flutterwave-webhook]
+verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false
+
+[functions.verify-flutterwave-payment]
+verify_jwt = false
+
+[auth]
+enabled = true
+port = 54324
+
+[auth.external.apple]
+enabled = false
+client_id = ""
+secret = "env(APPLE_SECRET)"
+
+[auth.external.azure]
+enabled = false
+client_id = ""
+secret = "env(AZURE_SECRET)"
+url = ""
+
+[auth.external.bitbucket]
+enabled = false
+client_id = ""
+secret = "env(BITBUCKET_SECRET)"
+
+[auth.external.discord]
+enabled = false
+client_id = ""
+secret = "env(DISCORD_SECRET)"
+
+[auth.external.facebook]
+enabled = false
+client_id = ""
+secret = "env(FACEBOOK_SECRET)"
+
+[auth.external.figma]
+enabled = false
+client_id = ""
+secret = "env(FIGMA_SECRET)"
+
+[auth.external.github]
+enabled = false
+client_id = ""
+secret = "env(GITHUB_SECRET)"
+
+[auth.external.gitlab]
+enabled = false
+client_id = ""
+secret = "env(GITLAB_SECRET)"
+
+[auth.external.google]
+enabled = false
+client_id = ""
+secret = "env(GOOGLE_SECRET)"
+
+[auth.external.keycloak]
+enabled = false
+client_id = ""
+secret = "env(KEYCLOAK_SECRET)"
+url = ""
+
+[auth.external.linkedin]
+enabled = false
+client_id = ""
+secret = "env(LINKEDIN_SECRET)"
+
+[auth.external.notion]
+enabled = false
+client_id = ""
+secret = "env(NOTION_SECRET)"
+
+[auth.external.twitch]
+enabled = false
+client_id = ""
+secret = "env(TWITCH_SECRET)"
+
+[auth.external.twitter]
+enabled = false
+client_id = ""
+secret = "env(TWITTER_SECRET)"
+
+[auth.external.slack]
+enabled = false
+client_id = ""
+secret = "env(SLACK_SECRET)"
+
+[auth.external.spotify]
+enabled = false
+client_id = ""
+secret = "env(SPOTIFY_SECRET)"
+
+[auth.external.workos]
+enabled = false
+client_id = ""
+secret = "env(WORKOS_SECRET)"
+
+[auth.external.zoom]
+enabled = false
+client_id = ""
+secret = "env(ZOOM_SECRET)"
