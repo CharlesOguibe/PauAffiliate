@@ -33,8 +33,14 @@ export const notifyAdminsOfWithdrawalRequest = async (
     console.log(`Found ${adminUsers.length} admin users to notify:`, adminUsers)
 
     // Send email notification to each admin
-    const emailPromises = adminUsers.map(admin => {
+    const emailPromises = adminUsers.map(async (admin) => {
       console.log(`Sending notification to admin: ${admin.email}`)
+      
+      if (!admin.email) {
+        console.log('Admin has no email, skipping...')
+        return { success: false, error: 'No email' }
+      }
+
       return sendGeneralNotificationEmail(
         admin.email,
         admin.name || 'Admin',
@@ -51,7 +57,11 @@ export const notifyAdminsOfWithdrawalRequest = async (
     // Log results
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
-        console.log(`Successfully sent notification to admin ${index + 1}`);
+        if (result.value.success) {
+          console.log(`Successfully sent notification to admin ${index + 1}`);
+        } else {
+          console.error(`Failed to send notification to admin ${index + 1}:`, result.value.error);
+        }
       } else {
         console.error(`Failed to send notification to admin ${index + 1}:`, result.reason);
       }
@@ -86,6 +96,11 @@ export const notifyAffiliateOfWithdrawalStatus = async (
 
     if (error || !affiliate) {
       console.error('Error fetching affiliate details:', error);
+      return;
+    }
+
+    if (!affiliate.email) {
+      console.error('Affiliate has no email address');
       return;
     }
 

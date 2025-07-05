@@ -32,14 +32,30 @@ serve(async (req) => {
   }
 
   try {
+    // Check if RESEND_API_KEY exists
+    if (!Deno.env.get('RESEND_API_KEY')) {
+      console.error('RESEND_API_KEY is not set')
+      throw new Error('RESEND_API_KEY is not configured')
+    }
+
     const requestBody = await req.json()
     console.log('Request body received:', JSON.stringify(requestBody, null, 2))
     
     const { type, userEmail, userName, data }: NotificationEmailRequest = requestBody
 
     if (!type || !userEmail || !userName || !data) {
-      console.error('Missing required fields:', { type, userEmail, userName, data })
-      throw new Error('Missing required fields: type, userEmail, userName, or data')
+      console.error('Missing required fields:', { type, userEmail, userName, data: !!data })
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Missing required fields: type, userEmail, userName, or data',
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
     }
 
     console.log('Processing email notification:', { type, userEmail, userName })
@@ -47,85 +63,97 @@ serve(async (req) => {
     let emailHtml: string
     let subject: string
 
-    switch (type) {
-      case 'withdrawal_request':
-        console.log('Rendering withdrawal request email')
-        emailHtml = await renderAsync(
-          React.createElement(WithdrawalRequestEmail, {
-            userName,
-            amount: data.amount,
-            bankName: data.bankName,
-            accountNumber: data.accountNumber,
-            accountName: data.accountName,
-          })
-        )
-        subject = 'Withdrawal Request Submitted - PAUAffiliate'
-        break
+    try {
+      switch (type) {
+        case 'withdrawal_request':
+          console.log('Rendering withdrawal request email with data:', data)
+          emailHtml = await renderAsync(
+            React.createElement(WithdrawalRequestEmail, {
+              userName: userName || 'User',
+              amount: Number(data.amount) || 0,
+              bankName: String(data.bankName || ''),
+              accountNumber: String(data.accountNumber || ''),
+              accountName: String(data.accountName || ''),
+            })
+          )
+          subject = 'Withdrawal Request Submitted - PAUAffiliate'
+          break
 
-      case 'withdrawal_status':
-        console.log('Rendering withdrawal status email')
-        emailHtml = await renderAsync(
-          React.createElement(WithdrawalStatusEmail, {
-            userName,
-            amount: data.amount,
-            status: data.status,
-            bankName: data.bankName,
-            accountNumber: data.accountNumber,
-            accountName: data.accountName,
-            notes: data.notes,
-          })
-        )
-        subject = `Withdrawal ${data.status.charAt(0).toUpperCase() + data.status.slice(1)} - PAUAffiliate`
-        break
+        case 'withdrawal_status':
+          console.log('Rendering withdrawal status email with data:', data)
+          emailHtml = await renderAsync(
+            React.createElement(WithdrawalStatusEmail, {
+              userName: userName || 'User',
+              amount: Number(data.amount) || 0,
+              status: data.status || 'pending',
+              bankName: String(data.bankName || ''),
+              accountNumber: String(data.accountNumber || ''),
+              accountName: String(data.accountName || ''),
+              notes: data.notes || undefined,
+            })
+          )
+          subject = `Withdrawal ${String(data.status || 'Update').charAt(0).toUpperCase() + String(data.status || 'update').slice(1)} - PAUAffiliate`
+          break
 
-      case 'sale_notification':
-        console.log('Rendering sale notification email')
-        emailHtml = await renderAsync(
-          React.createElement(SaleNotificationEmail, {
-            userName,
-            productName: data.productName,
-            commissionAmount: data.commissionAmount,
-            customerEmail: data.customerEmail,
-          })
-        )
-        subject = `🎉 New Sale! You earned ₦${data.commissionAmount.toFixed(2)} - PAUAffiliate`
-        break
+        case 'sale_notification':
+          console.log('Rendering sale notification email with data:', data)
+          emailHtml = await renderAsync(
+            React.createElement(SaleNotificationEmail, {
+              userName: userName || 'User',
+              productName: String(data.productName || 'Product'),
+              commissionAmount: Number(data.commissionAmount) || 0,
+              customerEmail: String(data.customerEmail || ''),
+            })
+          )
+          subject = `🎉 New Sale! You earned ₦${Number(data.commissionAmount || 0).toFixed(2)} - PAUAffiliate`
+          break
 
-      case 'general':
-        console.log('Rendering general notification email')
-        emailHtml = await renderAsync(
-          React.createElement(GeneralNotificationEmail, {
-            userName,
-            title: data.title,
-            message: data.message,
-            type: data.notificationType || 'info',
-          })
-        )
-        subject = `${data.title} - PAUAffiliate`
-        break
+        case 'general':
+          console.log('Rendering general notification email with data:', data)
+          emailHtml = await renderAsync(
+            React.createElement(GeneralNotificationEmail, {
+              userName: userName || 'User',
+              title: String(data.title || 'Notification'),
+              message: String(data.message || ''),
+              type: data.notificationType || 'info',
+            })
+          )
+          subject = `${String(data.title || 'Notification')} - PAUAffiliate`
+          break
 
-      default:
-        throw new Error(`Unknown email type: ${type}`)
+        default:
+          throw new Error(`Unknown email type: ${type}`)
+      }
+    } catch (renderError) {
+      console.error('Error rendering email template:', renderError)
+      throw new Error(`Failed to render email template: ${renderError.message}`)
     }
 
     console.log('Email HTML rendered successfully, sending via Resend...')
+    console.log('Sending to email:', userEmail)
+    console.log('Subject:', subject)
 
-    const { data: emailData, error } = await resend.emails.send({
+    const { data: emailData, error: resendError } = await resend.emails.send({
       from: 'PAUAffiliate <notifications@resend.dev>',
       to: [userEmail],
       subject,
       html: emailHtml,
     })
 
-    if (error) {
-      console.error('Resend error:', error)
-      throw new Error(`Resend error: ${error.message || 'Unknown error'}`)
+    if (resendError) {
+      console.error('Resend error:', resendError)
+      throw new Error(`Resend error: ${resendError.message || 'Unknown resend error'}`)
     }
 
     console.log('Email sent successfully to:', userEmail, 'Email ID:', emailData?.id)
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email sent successfully', emailId: emailData?.id }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'Email sent successfully', 
+        emailId: emailData?.id,
+        timestamp: new Date().toISOString()
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
