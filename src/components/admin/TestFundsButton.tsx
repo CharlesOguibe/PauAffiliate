@@ -16,12 +16,12 @@ const TestFundsButton = () => {
     
     setLoading(true);
     try {
-      // Add ₦5,000 test funds to the wallet
+      // Add ₦5,000 test funds to the wallet using 'commission' as transaction type
       const { error } = await supabase.rpc('add_to_wallet', {
         user_id: user.id,
         amount: 5000,
         sale_id: null,
-        transaction_type: 'test_credit',
+        transaction_type: 'commission',
         description: 'Test funds for withdrawal testing'
       });
 
@@ -35,6 +35,7 @@ const TestFundsButton = () => {
       // Refresh the page to update balance
       window.location.reload();
     } catch (error) {
+      console.error('Error adding test funds:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to add test funds.",
