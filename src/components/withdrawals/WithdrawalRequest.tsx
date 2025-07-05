@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Banknote, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -6,6 +5,7 @@ import GlassCard from '@/components/ui/custom/GlassCard';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { sendWithdrawalRequestEmail, sendGeneralNotificationEmail } from '@/utils/emailNotifications';
+import { notifyAdminsOfWithdrawalRequest } from '@/utils/adminNotifications';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface WithdrawalRequestProps {
@@ -88,7 +88,7 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
           }
         );
 
-        // Also send a general notification
+        // Also send a general notification to the user
         await sendGeneralNotificationEmail(
           user.email,
           user.name,
@@ -97,6 +97,13 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
             message: `Your withdrawal request for ₦${withdrawalAmount.toFixed(2)} has been submitted and is under review. You will be notified once it's processed.`,
             notificationType: 'info'
           }
+        );
+
+        // Notify all admin users about the new withdrawal request
+        await notifyAdminsOfWithdrawalRequest(
+          withdrawalAmount,
+          user.email,
+          bankDetails
         );
       }
       
