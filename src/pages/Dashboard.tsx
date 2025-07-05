@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -31,6 +30,7 @@ import AdminPanel from '@/components/admin/AdminPanel';
 import ProductList from '@/components/products/ProductList';
 import ReferralLinksTable from '@/components/dashboard/ReferralLinksTable';
 import BusinessMetrics from '@/components/dashboard/BusinessMetrics';
+import TestEmailButton from '@/components/dashboard/TestEmailButton';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -134,6 +134,10 @@ const Dashboard = () => {
           </Link>
           
           <div className="flex items-center space-x-4">
+            <TestEmailButton 
+              userEmail={user?.email || ''} 
+              userName={user?.name || 'User'} 
+            />
             <NotificationBell 
               notifications={notifications}
               onMarkAsRead={handleMarkNotificationAsRead}
