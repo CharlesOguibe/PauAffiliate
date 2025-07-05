@@ -58,6 +58,21 @@ const WithdrawalHistory = ({ withdrawalRequests }: WithdrawalHistoryProps) => {
     }
   };
 
+  const getStatusDescription = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Under review';
+      case 'approved':
+        return 'Approved - Processing payout';
+      case 'completed':
+        return 'Completed';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return status;
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -81,6 +96,9 @@ const WithdrawalHistory = ({ withdrawalRequests }: WithdrawalHistoryProps) => {
     <GlassCard className="overflow-hidden">
       <div className="p-6 border-b">
         <h3 className="text-lg font-semibold">Withdrawal History</h3>
+        <p className="text-sm text-muted-foreground mt-1">
+          Track the status of your withdrawal requests
+        </p>
       </div>
       <div className="overflow-x-auto">
         <Table>
@@ -91,6 +109,7 @@ const WithdrawalHistory = ({ withdrawalRequests }: WithdrawalHistoryProps) => {
               <TableHead>Status</TableHead>
               <TableHead>Requested</TableHead>
               <TableHead>Processed</TableHead>
+              <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -110,9 +129,14 @@ const WithdrawalHistory = ({ withdrawalRequests }: WithdrawalHistoryProps) => {
                 <TableCell>
                   <div className="flex items-center space-x-2">
                     {getStatusIcon(request.status)}
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                      {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      </span>
+                      <span className="text-xs text-muted-foreground mt-1">
+                        {getStatusDescription(request.status)}
+                      </span>
+                    </div>
                   </div>
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
@@ -120,6 +144,15 @@ const WithdrawalHistory = ({ withdrawalRequests }: WithdrawalHistoryProps) => {
                 </TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {request.processed_at ? formatDate(request.processed_at) : '-'}
+                </TableCell>
+                <TableCell className="text-sm text-muted-foreground max-w-xs">
+                  {request.notes ? (
+                    <div className="truncate" title={request.notes}>
+                      {request.notes}
+                    </div>
+                  ) : (
+                    '-'
+                  )}
                 </TableCell>
               </TableRow>
             ))}

@@ -541,6 +541,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      complete_withdrawal: {
+        Args: {
+          request_id: string
+          admin_id: string
+          completion_notes?: string
+        }
+        Returns: Json
+      }
       create_notification: {
         Args: {
           target_user_id: string
@@ -557,6 +565,15 @@ export type Database = {
       generate_referral_code: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      process_withdrawal_approval: {
+        Args: {
+          request_id: string
+          admin_id: string
+          approve: boolean
+          admin_notes?: string
+        }
+        Returns: Json
       }
     }
     Enums: {

@@ -1,10 +1,12 @@
+
 import React, { useState } from 'react';
 import { Banknote, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { sendWithdrawalRequestEmail } from '@/utils/emailNotifications';
+import { sendWithdrawalRequestEmail, sendGeneralNotificationEmail } from '@/utils/emailNotifications';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface WithdrawalRequestProps {
   availableBalance: number;
@@ -18,6 +20,7 @@ interface BankDetails {
 }
 
 const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: WithdrawalRequestProps) => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [amount, setAmount] = useState('');
   const [bankDetails, setBankDetails] = useState<BankDetails>({
@@ -72,17 +75,27 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
     try {
       await onWithdrawalRequest(withdrawalAmount, bankDetails);
       
-      // Send email notification
-      const user = JSON.parse(localStorage.getItem('sb-dbxgdgpmvobmrdlibauf-auth-token') || '{}');
-      if (user?.user?.email && user?.user?.user_metadata?.name) {
+      // Send email notification to user
+      if (user?.email && user?.name) {
         await sendWithdrawalRequestEmail(
-          user.user.email,
-          user.user.user_metadata.name,
+          user.email,
+          user.name,
           {
             amount: withdrawalAmount,
             bankName: bankDetails.bankName,
             accountNumber: bankDetails.accountNumber,
             accountName: bankDetails.accountName
+          }
+        );
+
+        // Also send a general notification
+        await sendGeneralNotificationEmail(
+          user.email,
+          user.name,
+          {
+            title: 'Withdrawal Request Submitted',
+            message: `Your withdrawal request for ₦${withdrawalAmount.toFixed(2)} has been submitted and is under review. You will be notified once it's processed.`,
+            notificationType: 'info'
           }
         );
       }
@@ -121,6 +134,9 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
               Available Balance: <span className="font-semibold">₦{availableBalance.toFixed(2)}</span>
             </p>
           </div>
+          <p className="text-xs text-blue-600 mt-1">
+            Withdrawals are processed within 24-48 hours. You'll receive email notifications about status updates.
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
