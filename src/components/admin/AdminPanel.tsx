@@ -79,23 +79,30 @@ const AdminPanel = () => {
 
       if (error) throw error;
       
-      // Transform and separate the data
-      const transformedData: WithdrawalRequest[] = (data || []).map(req => ({
-        id: req.id,
-        amount: req.amount,
-        bank_name: req.bank_name,
-        account_number: req.account_number,
-        account_name: req.account_name,
-        status: req.status as 'pending' | 'approved' | 'rejected' | 'completed',
-        created_at: req.created_at,
-        processed_at: req.processed_at,
-        affiliate_id: req.affiliate_id,
-        notes: req.notes,
-        profiles: {
-          name: req.profiles?.name || 'Unknown',
-          email: req.profiles?.email || 'Unknown'
-        }
-      }));
+      console.log('Raw withdrawal data:', data);
+      
+      // Transform and separate the data with better null handling
+      const transformedData: WithdrawalRequest[] = (data || []).map(req => {
+        console.log('Processing request:', req.id, 'Profile data:', req.profiles);
+        return {
+          id: req.id,
+          amount: req.amount,
+          bank_name: req.bank_name,
+          account_number: req.account_number,
+          account_name: req.account_name,
+          status: req.status as 'pending' | 'approved' | 'rejected' | 'completed',
+          created_at: req.created_at,
+          processed_at: req.processed_at,
+          affiliate_id: req.affiliate_id,
+          notes: req.notes,
+          profiles: {
+            name: req.profiles?.name || 'No Name',
+            email: req.profiles?.email || 'No Email'
+          }
+        };
+      });
+      
+      console.log('Transformed withdrawal data:', transformedData);
       
       setPendingWithdrawals(transformedData.filter(req => req.status === 'pending'));
       setApprovedWithdrawals(transformedData.filter(req => req.status === 'approved'));
@@ -159,7 +166,7 @@ const AdminPanel = () => {
 
       // Send email notification
       const request = pendingWithdrawals.find(req => req.id === requestId);
-      if (request && request.profiles.email !== 'Unknown') {
+      if (request && request.profiles.email !== 'No Email') {
         if (approve) {
           await sendGeneralNotificationEmail(
             request.profiles.email,
@@ -231,7 +238,7 @@ const AdminPanel = () => {
 
       // Send email notification
       const request = approvedWithdrawals.find(req => req.id === requestId);
-      if (request && request.profiles.email !== 'Unknown') {
+      if (request && request.profiles.email !== 'No Email') {
         await sendGeneralNotificationEmail(
           request.profiles.email,
           request.profiles.name,
