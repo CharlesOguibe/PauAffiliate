@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Banknote, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
 interface WithdrawalRequestProps {
@@ -108,62 +109,58 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Withdrawal Amount (₦)
             </label>
-            <input
+            <Input
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="Enter amount to withdraw"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               min="1000"
               max={availableBalance}
               step="0.01"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">Minimum withdrawal: ₦1,000</p>
+            <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: ₦1,000</p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Bank Name
             </label>
-            <input
+            <Input
               type="text"
               value={bankDetails.bankName}
               onChange={(e) => setBankDetails(prev => ({ ...prev, bankName: e.target.value }))}
               placeholder="Enter your bank name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Account Number
             </label>
-            <input
+            <Input
               type="text"
               value={bankDetails.accountNumber}
               onChange={(e) => setBankDetails(prev => ({ ...prev, accountNumber: e.target.value }))}
               placeholder="Enter your account number"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               pattern="[0-9]{10}"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-foreground mb-2">
               Account Name
             </label>
-            <input
+            <Input
               type="text"
               value={bankDetails.accountName}
               onChange={(e) => setBankDetails(prev => ({ ...prev, accountName: e.target.value }))}
               placeholder="Enter account holder name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               required
             />
           </div>
