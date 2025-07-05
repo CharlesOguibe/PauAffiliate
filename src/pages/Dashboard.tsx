@@ -30,6 +30,7 @@ import AdminPanel from '@/components/admin/AdminPanel';
 import ProductList from '@/components/products/ProductList';
 import ReferralLinksTable from '@/components/dashboard/ReferralLinksTable';
 import BusinessMetrics from '@/components/dashboard/BusinessMetrics';
+import TestFundsButton from '@/components/admin/TestFundsButton';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -138,6 +139,7 @@ const Dashboard = () => {
               onMarkAsRead={handleMarkNotificationAsRead}
               onClearAll={handleClearNotifications}
             />
+            {isAffiliateUser && <TestFundsButton />}
             <Link to="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-1" />
