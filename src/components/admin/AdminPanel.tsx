@@ -56,7 +56,7 @@ const AdminPanel = () => {
 
   const fetchWithdrawalRequests = async () => {
     try {
-      // Try a direct join approach instead of using foreign key hints
+      // Use the correct foreign key hint - withdrawal_requests.affiliate_id references profiles.id
       const { data, error } = await supabase
         .from('withdrawal_requests')
         .select(`
@@ -71,7 +71,7 @@ const AdminPanel = () => {
           processed_at,
           processed_by,
           notes,
-          profiles:affiliate_id (
+          profiles!withdrawal_requests_affiliate_id_fkey (
             email
           )
         `)
@@ -102,8 +102,8 @@ const AdminPanel = () => {
         // Check if we have profile data
         let profileEmail = 'No Email Available';
         
-        if (req.profiles) {
-          profileEmail = req.profiles.email || 'No Email Available';
+        if (req.profiles && req.profiles.email) {
+          profileEmail = req.profiles.email;
         } else {
           console.warn('No profile data found for request:', req.id, 'affiliate_id:', req.affiliate_id);
         }
