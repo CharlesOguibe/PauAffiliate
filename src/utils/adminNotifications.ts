@@ -12,6 +12,8 @@ export const notifyAdminsOfWithdrawalRequest = async (
   }
 ) => {
   try {
+    console.log('Fetching admin users for withdrawal notification...')
+    
     // Get all admin users
     const { data: adminUsers, error } = await supabase
       .from('profiles')
@@ -28,9 +30,12 @@ export const notifyAdminsOfWithdrawalRequest = async (
       return;
     }
 
+    console.log(`Found ${adminUsers.length} admin users to notify:`, adminUsers)
+
     // Send email notification to each admin
-    const emailPromises = adminUsers.map(admin => 
-      sendGeneralNotificationEmail(
+    const emailPromises = adminUsers.map(admin => {
+      console.log(`Sending notification to admin: ${admin.email}`)
+      return sendGeneralNotificationEmail(
         admin.email,
         admin.name || 'Admin',
         {
@@ -39,10 +44,20 @@ export const notifyAdminsOfWithdrawalRequest = async (
           notificationType: 'warning'
         }
       )
-    );
+    });
 
-    await Promise.all(emailPromises);
-    console.log(`Withdrawal request notification sent to ${adminUsers.length} admin(s)`);
+    const results = await Promise.allSettled(emailPromises);
+    
+    // Log results
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        console.log(`Successfully sent notification to admin ${index + 1}`);
+      } else {
+        console.error(`Failed to send notification to admin ${index + 1}:`, result.reason);
+      }
+    });
+
+    console.log(`Withdrawal request notification process completed for ${adminUsers.length} admin(s)`);
   } catch (error) {
     console.error('Error notifying admins of withdrawal request:', error);
   }
@@ -60,6 +75,8 @@ export const notifyAffiliateOfWithdrawalStatus = async (
   notes?: string
 ) => {
   try {
+    console.log('Fetching affiliate details for status notification...')
+    
     // Get affiliate details
     const { data: affiliate, error } = await supabase
       .from('profiles')
@@ -72,8 +89,10 @@ export const notifyAffiliateOfWithdrawalStatus = async (
       return;
     }
 
+    console.log(`Sending withdrawal status email to affiliate: ${affiliate.email}`)
+
     // Send withdrawal status email to affiliate
-    await sendWithdrawalStatusEmail(
+    const result = await sendWithdrawalStatusEmail(
       affiliate.email,
       affiliate.name || 'User',
       {
@@ -86,7 +105,11 @@ export const notifyAffiliateOfWithdrawalStatus = async (
       }
     );
 
-    console.log(`Withdrawal status email sent to affiliate: ${affiliate.email}`);
+    if (result.success) {
+      console.log(`Withdrawal status email sent successfully to affiliate: ${affiliate.email}`);
+    } else {
+      console.error(`Failed to send withdrawal status email:`, result.error);
+    }
   } catch (error) {
     console.error('Error notifying affiliate of withdrawal status:', error);
   }

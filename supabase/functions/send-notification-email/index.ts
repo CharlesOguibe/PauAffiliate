@@ -1,3 +1,4 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { Resend } from 'npm:resend@4.0.0'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
@@ -9,10 +10,6 @@ import { SaleNotificationEmail } from './_templates/sale-notification.tsx'
 import { GeneralNotificationEmail } from './_templates/general-notification.tsx'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,21 +24,32 @@ interface NotificationEmailRequest {
 }
 
 serve(async (req) => {
+  console.log('Email function called with method:', req.method)
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { type, userEmail, userName, data }: NotificationEmailRequest = await req.json()
+    const requestBody = await req.json()
+    console.log('Request body received:', JSON.stringify(requestBody, null, 2))
+    
+    const { type, userEmail, userName, data }: NotificationEmailRequest = requestBody
 
-    console.log('Sending email notification:', { type, userEmail, userName })
+    if (!type || !userEmail || !userName || !data) {
+      console.error('Missing required fields:', { type, userEmail, userName, data })
+      throw new Error('Missing required fields: type, userEmail, userName, or data')
+    }
+
+    console.log('Processing email notification:', { type, userEmail, userName })
 
     let emailHtml: string
     let subject: string
 
     switch (type) {
       case 'withdrawal_request':
+        console.log('Rendering withdrawal request email')
         emailHtml = await renderAsync(
           React.createElement(WithdrawalRequestEmail, {
             userName,
@@ -55,6 +63,7 @@ serve(async (req) => {
         break
 
       case 'withdrawal_status':
+        console.log('Rendering withdrawal status email')
         emailHtml = await renderAsync(
           React.createElement(WithdrawalStatusEmail, {
             userName,
@@ -70,6 +79,7 @@ serve(async (req) => {
         break
 
       case 'sale_notification':
+        console.log('Rendering sale notification email')
         emailHtml = await renderAsync(
           React.createElement(SaleNotificationEmail, {
             userName,
@@ -82,6 +92,7 @@ serve(async (req) => {
         break
 
       case 'general':
+        console.log('Rendering general notification email')
         emailHtml = await renderAsync(
           React.createElement(GeneralNotificationEmail, {
             userName,
@@ -97,7 +108,9 @@ serve(async (req) => {
         throw new Error(`Unknown email type: ${type}`)
     }
 
-    const { error } = await resend.emails.send({
+    console.log('Email HTML rendered successfully, sending via Resend...')
+
+    const { data: emailData, error } = await resend.emails.send({
       from: 'PAUAffiliate <notifications@resend.dev>',
       to: [userEmail],
       subject,
@@ -106,13 +119,13 @@ serve(async (req) => {
 
     if (error) {
       console.error('Resend error:', error)
-      throw error
+      throw new Error(`Resend error: ${error.message || 'Unknown error'}`)
     }
 
-    console.log('Email sent successfully to:', userEmail)
+    console.log('Email sent successfully to:', userEmail, 'Email ID:', emailData?.id)
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Email sent successfully' }),
+      JSON.stringify({ success: true, message: 'Email sent successfully', emailId: emailData?.id }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -120,8 +133,14 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error in send-notification-email function:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

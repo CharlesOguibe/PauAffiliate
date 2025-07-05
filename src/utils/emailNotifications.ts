@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client'
 
 interface EmailNotificationData {
@@ -9,6 +10,8 @@ interface EmailNotificationData {
 
 export const sendEmailNotification = async (notificationData: EmailNotificationData) => {
   try {
+    console.log('Sending email notification:', notificationData)
+    
     const { data, error } = await supabase.functions.invoke('send-notification-email', {
       body: notificationData
     })
@@ -18,7 +21,7 @@ export const sendEmailNotification = async (notificationData: EmailNotificationD
       return { success: false, error }
     }
 
-    console.log('Email notification sent successfully')
+    console.log('Email notification sent successfully:', data)
     return { success: true, data }
   } catch (error) {
     console.error('Error invoking email function:', error)
@@ -37,6 +40,7 @@ export const sendWithdrawalRequestEmail = async (
     accountName: string
   }
 ) => {
+  console.log('Sending withdrawal request email to:', userEmail)
   return sendEmailNotification({
     type: 'withdrawal_request',
     userEmail,
@@ -57,6 +61,7 @@ export const sendWithdrawalStatusEmail = async (
     notes?: string
   }
 ) => {
+  console.log('Sending withdrawal status email to:', userEmail)
   return sendEmailNotification({
     type: 'withdrawal_status',
     userEmail,
@@ -74,6 +79,7 @@ export const sendSaleNotificationEmail = async (
     customerEmail: string
   }
 ) => {
+  console.log('Sending sale notification email to:', userEmail)
   return sendEmailNotification({
     type: 'sale_notification',
     userEmail,
@@ -91,6 +97,7 @@ export const sendGeneralNotificationEmail = async (
     notificationType?: 'info' | 'warning' | 'success' | 'error'
   }
 ) => {
+  console.log('Sending general notification email to:', userEmail)
   return sendEmailNotification({
     type: 'general',
     userEmail,
