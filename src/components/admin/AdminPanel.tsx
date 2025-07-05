@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -77,13 +78,21 @@ const AdminPanel = () => {
         .in('status', ['pending', 'approved'])
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
       
       console.log('Raw withdrawal data:', data);
       
-      // Transform and separate the data with better null handling
+      // Transform and separate the data with better error handling
       const transformedData: WithdrawalRequest[] = (data || []).map(req => {
         console.log('Processing request:', req.id, 'Profile data:', req.profiles);
+        
+        // Handle the case where profiles might be null or the join failed
+        const profileName = req.profiles?.name || 'Unknown User';
+        const profileEmail = req.profiles?.email || 'No Email Available';
+        
         return {
           id: req.id,
           amount: req.amount,
@@ -96,8 +105,8 @@ const AdminPanel = () => {
           affiliate_id: req.affiliate_id,
           notes: req.notes,
           profiles: {
-            name: req.profiles?.name || 'No Name',
-            email: req.profiles?.email || 'No Email'
+            name: profileName,
+            email: profileEmail
           }
         };
       });
@@ -166,7 +175,7 @@ const AdminPanel = () => {
 
       // Send email notification
       const request = pendingWithdrawals.find(req => req.id === requestId);
-      if (request && request.profiles.email !== 'No Email') {
+      if (request && request.profiles.email !== 'No Email Available') {
         if (approve) {
           await sendGeneralNotificationEmail(
             request.profiles.email,
@@ -238,7 +247,7 @@ const AdminPanel = () => {
 
       // Send email notification
       const request = approvedWithdrawals.find(req => req.id === requestId);
-      if (request && request.profiles.email !== 'No Email') {
+      if (request && request.profiles.email !== 'No Email Available') {
         await sendGeneralNotificationEmail(
           request.profiles.email,
           request.profiles.name,
