@@ -1,21 +1,8 @@
 
-import emailjs from '@emailjs/browser';
-
-// EmailJS configuration - these will be public keys so it's safe to store them here
-const EMAILJS_CONFIG = {
-  publicKey: 'YOUR_PUBLIC_KEY', // Replace with your EmailJS public key
-  serviceId: 'YOUR_SERVICE_ID', // Replace with your EmailJS service ID
-  templates: {
-    withdrawalRequest: 'YOUR_WITHDRAWAL_REQUEST_TEMPLATE_ID',
-    withdrawalStatus: 'YOUR_WITHDRAWAL_STATUS_TEMPLATE_ID',
-    saleNotification: 'YOUR_SALE_NOTIFICATION_TEMPLATE_ID',
-    generalNotification: 'YOUR_GENERAL_NOTIFICATION_TEMPLATE_ID',
-  }
-};
-
-// Initialize EmailJS
+// Simple mailto utility functions
 export const initializeEmailJS = () => {
-  emailjs.init(EMAILJS_CONFIG.publicKey);
+  // No initialization needed for mailto
+  console.log('Using mailto for email functionality');
 };
 
 export const sendEmailViaEmailJS = async (
@@ -24,22 +11,34 @@ export const sendEmailViaEmailJS = async (
   userEmail: string
 ) => {
   try {
-    console.log('Sending email via EmailJS:', { templateId, userEmail, templateParams });
+    console.log('Opening mailto link for email:', { templateId, userEmail, templateParams });
     
-    const response = await emailjs.send(
-      EMAILJS_CONFIG.serviceId,
-      templateId,
-      {
-        to_email: userEmail,
-        ...templateParams
-      }
-    );
-
-    console.log('EmailJS response:', response);
-    return { success: true, data: response };
+    // Extract common parameters
+    const subject = templateParams.subject || 'Notification from Affiliate Platform';
+    const body = templateParams.message || templateParams.body || 'Default message';
+    
+    // Create mailto link
+    const mailtoLink = `mailto:${userEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    // Open email client
+    window.open(mailtoLink);
+    
+    console.log('Mailto link opened successfully');
+    return { success: true, data: { message: 'Email client opened' } };
   } catch (error) {
-    console.error('EmailJS error:', error);
-    return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
+    console.error('Mailto error:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to open email client' };
+  }
+};
+
+const EMAILJS_CONFIG = {
+  publicKey: '',
+  serviceId: '',
+  templates: {
+    withdrawalRequest: 'withdrawal_request',
+    withdrawalStatus: 'withdrawal_status',
+    saleNotification: 'sale_notification',
+    generalNotification: 'general_notification',
   }
 };
 

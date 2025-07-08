@@ -30,17 +30,17 @@ const TestEmailButton = ({ userEmail, userName }: TestEmailButtonProps) => {
 
       if (result.success) {
         toast({
-          title: "Test Email Sent!",
-          description: "Check your email inbox for the test notification.",
+          title: "Email Client Opened!",
+          description: "Your default email client should now be open with the test email.",
         });
       } else {
-        throw new Error(result.error?.message || 'Failed to send test email');
+        throw new Error(result.error || 'Failed to open email client');
       }
     } catch (error) {
-      console.error('Error sending test email:', error);
+      console.error('Error opening email client:', error);
       toast({
         title: "Error",
-        description: "Failed to send test email. Please try again.",
+        description: "Failed to open email client. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -54,7 +54,7 @@ const TestEmailButton = ({ userEmail, userName }: TestEmailButtonProps) => {
       size="sm"
       onClick={handleSendTestEmail}
       isLoading={isSending}
-      loadingText="Sending..."
+      loadingText="Opening..."
     >
       <Mail className="h-4 w-4 mr-2" />
       Send Test Email
