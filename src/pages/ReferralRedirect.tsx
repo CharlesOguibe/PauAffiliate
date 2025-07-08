@@ -29,219 +29,75 @@ const ReferralRedirect = () => {
   } = useQuery({
     queryKey: ["referral", code],
     queryFn: async () => {
-      console.log("=== REFERRAL LINK LOOKUP DEBUG ===");
+      console.log("=== SIMPLIFIED REFERRAL LOOKUP ===");
       console.log("Looking for referral code:", code);
 
       if (!code) {
         throw new Error("No referral code provided");
       }
 
-      // Clean the code - remove any whitespace and convert to lowercase for comparison
-      const cleanCode = code.trim().toLowerCase();
-      console.log("Cleaned code for lookup:", cleanCode);
-
       try {
-        // Try exact match first with explicit column selection
-        console.log("Trying exact match...");
-        const { data: exactMatch, error: exactError } = await supabase
+        // Step 1: Find the referral link
+        console.log("Step 1: Finding referral link...");
+        const { data: referralLink, error: referralError } = await supabase
           .from("referral_links")
-          .select(`
-            id,
-            code,
-            affiliate_id,
-            product_id,
-            clicks,
-            conversions,
-            created_at
-          `)
+          .select("*")
           .eq("code", code)
-          .maybeSingle();
+          .single();
 
-        console.log("Exact match result:", { exactMatch, exactError });
-
-        if (exactError) {
-          console.error("Error in exact match query:", exactError);
+        if (referralError) {
+          console.error("Referral link error:", referralError);
+          throw new Error("Referral code not found");
         }
 
-        if (exactMatch) {
-          console.log("Found exact match! Getting product details...");
-          
-          // Get product details separately
-          const { data: product, error: productError } = await supabase
-            .from("products")
-            .select("*")
-            .eq("id", exactMatch.product_id)
-            .maybeSingle();
-
-          console.log("Product lookup result:", { product, productError });
-
-          if (productError) {
-            console.error("Error fetching product:", productError);
-          }
-
-          if (product) {
-            // Update click count
-            try {
-              const { error: updateError } = await supabase
-                .from("referral_links")
-                .update({ clicks: (exactMatch.clicks || 0) + 1 })
-                .eq("id", exactMatch.id);
-              
-              if (updateError) {
-                console.error("Error updating click count:", updateError);
-              }
-            } catch (updateErr) {
-              console.error("Failed to update click count:", updateErr);
-            }
-
-            return {
-              ...exactMatch,
-              product
-            };
-          } else {
-            console.log("Product not found for exact match referral link");
-          }
+        if (!referralLink) {
+          console.error("No referral link found");
+          throw new Error("Referral code not found");
         }
 
-        // Try case-insensitive match
-        console.log("Trying case-insensitive match...");
-        const { data: caseInsensitiveMatch, error: caseError } = await supabase
-          .from("referral_links")
-          .select(`
-            id,
-            code,
-            affiliate_id,
-            product_id,
-            clicks,
-            conversions,
-            created_at
-          `)
-          .ilike("code", cleanCode)
-          .maybeSingle();
+        console.log("Found referral link:", referralLink);
 
-        console.log("Case-insensitive match result:", { caseInsensitiveMatch, caseError });
-
-        if (caseError) {
-          console.error("Error in case-insensitive query:", caseError);
-        }
-
-        if (caseInsensitiveMatch) {
-          console.log("Found case-insensitive match! Getting product details...");
-          
-          // Get product details separately
-          const { data: product, error: productError } = await supabase
-            .from("products")
-            .select("*")
-            .eq("id", caseInsensitiveMatch.product_id)
-            .maybeSingle();
-
-          console.log("Product lookup result:", { product, productError });
-
-          if (productError) {
-            console.error("Error fetching product:", productError);
-          }
-
-          if (product) {
-            // Update click count
-            try {
-              const { error: updateError } = await supabase
-                .from("referral_links")
-                .update({ clicks: (caseInsensitiveMatch.clicks || 0) + 1 })
-                .eq("id", caseInsensitiveMatch.id);
-              
-              if (updateError) {
-                console.error("Error updating click count:", updateError);
-              }
-            } catch (updateErr) {
-              console.error("Failed to update click count:", updateErr);
-            }
-
-            return {
-              ...caseInsensitiveMatch,
-              product
-            };
-          } else {
-            console.log("Product not found for case-insensitive match referral link");
-          }
-        }
-
-        // Get ALL referral links to debug
-        console.log("Getting all referral links for debugging...");
-        const { data: allLinks, error: allError } = await supabase
-          .from("referral_links")
-          .select("*");
-
-        console.log("All referral links:", allLinks);
-        console.log("Available codes:", allLinks?.map(link => `"${link.code}"`));
-
-        if (allError) {
-          console.error("Error fetching all referral links:", allError);
-        }
-
-        if (allLinks && allLinks.length > 0) {
-          // Try manual search
-          const manualMatch = allLinks.find(link => 
-            link.code === code || 
-            link.code.toLowerCase() === cleanCode ||
-            link.code.trim() === code.trim()
-          );
-
-          if (manualMatch) {
-            console.log("Found manual match:", manualMatch);
-            
-            // Get the product separately
-            const { data: product, error: productError } = await supabase
-              .from("products")
-              .select("*")
-              .eq("id", manualMatch.product_id)
-              .maybeSingle();
-
-            console.log("Product for manual match:", { product, productError });
-
-            if (productError) {
-              console.error("Error fetching product for manual match:", productError);
-            }
-
-            if (product) {
-              console.log("Found product for manual match:", product);
-              
-              // Update click count
-              try {
-                const { error: updateError } = await supabase
-                  .from("referral_links")
-                  .update({ clicks: (manualMatch.clicks || 0) + 1 })
-                  .eq("id", manualMatch.id);
-                
-                if (updateError) {
-                  console.error("Error updating click count:", updateError);
-                }
-              } catch (updateErr) {
-                console.error("Failed to update click count:", updateErr);
-              }
-
-              return {
-                ...manualMatch,
-                product
-              };
-            } else {
-              console.log("Product not found for manual match referral link");
-            }
-          }
-        }
-
-        // Check if the products table has any data
-        console.log("Checking products table...");
-        const { data: allProducts, error: productsError } = await supabase
+        // Step 2: Find the product
+        console.log("Step 2: Finding product for ID:", referralLink.product_id);
+        const { data: product, error: productError } = await supabase
           .from("products")
-          .select("*");
-        
-        console.log("All products:", allProducts);
-        if (productsError) {
-          console.error("Error fetching products:", productsError);
+          .select("*")
+          .eq("id", referralLink.product_id)
+          .single();
+
+        if (productError) {
+          console.error("Product error:", productError);
+          throw new Error("Product not found");
         }
 
-        console.error("No referral link found for code:", code);
-        throw new Error("Referral code not found");
+        if (!product) {
+          console.error("No product found");
+          throw new Error("Product not found");
+        }
+
+        console.log("Found product:", product);
+
+        // Step 3: Update click count
+        console.log("Step 3: Updating click count...");
+        const { error: updateError } = await supabase
+          .from("referral_links")
+          .update({ clicks: (referralLink.clicks || 0) + 1 })
+          .eq("id", referralLink.id);
+
+        if (updateError) {
+          console.error("Error updating click count:", updateError);
+          // Don't throw here, just log the error
+        }
+
+        // Step 4: Store referral info in localStorage
+        localStorage.setItem("referral_code", code);
+        localStorage.setItem("referral_link_id", referralLink.id);
+        localStorage.setItem("affiliate_id", referralLink.affiliate_id);
+
+        return {
+          ...referralLink,
+          product
+        };
 
       } catch (err) {
         console.error("Error in referral lookup:", err);
@@ -263,7 +119,7 @@ const ReferralRedirect = () => {
   const handlePaymentFormSubmit = async (customerData: { email: string; fullName: string; phoneNumber?: string }) => {
     if (!referralData?.product) {
       toast({
-        title: "Error",
+        title: "Error", 
         description: "Product information not available",
         variant: "destructive",
       });
