@@ -17,7 +17,6 @@ const paymentFormSchema = z.object({
   deliveryAddress: z.string().min(10, 'Please enter a complete delivery address'),
   city: z.string().min(2, 'Please enter your city'),
   state: z.string().min(2, 'Please enter your state'),
-  postalCode: z.string().min(3, 'Please enter a valid postal code').optional(),
 });
 
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
@@ -40,7 +39,6 @@ const PaymentForm = ({ productName, amount, isLoading, onSubmit, onCancel }: Pay
       deliveryAddress: '',
       city: '',
       state: '',
-      postalCode: '',
     },
   });
 
@@ -176,24 +174,6 @@ const PaymentForm = ({ productName, amount, isLoading, onSubmit, onCancel }: Pay
                   )}
                 />
               </div>
-
-              <FormField
-                control={form.control}
-                name="postalCode"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Postal Code (Optional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="100001" 
-                        {...field} 
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             <div className="flex space-x-3 pt-4">

@@ -125,7 +125,6 @@ const ReferralRedirect = () => {
     deliveryAddress: string;
     city: string;
     state: string;
-    postalCode?: string;
   }) => {
     if (!referralData?.product) {
       toast({
@@ -144,7 +143,7 @@ const ReferralRedirect = () => {
         amount: referralData.product.price,
         customerEmail: customerData.email,
         customerName: customerData.fullName,
-        deliveryAddress: `${customerData.deliveryAddress}, ${customerData.city}, ${customerData.state}${customerData.postalCode ? ` ${customerData.postalCode}` : ''}`
+        deliveryAddress: `${customerData.deliveryAddress}, ${customerData.city}, ${customerData.state}`
       });
 
       // Create pending sale
