@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -36,11 +35,21 @@ const ReferralRedirect = () => {
         throw new Error("No referral code provided");
       }
 
-      // First, get the referral link
+      // First, let's check all referral links to see what codes exist
+      const { data: allLinks, error: allLinksError } = await supabase
+        .from("referral_links")
+        .select("code, id");
+
+      console.log("All referral link codes in database:", allLinks?.map(link => link.code));
+      
+      // Try to find the referral link with case-insensitive search and trimmed code
+      const trimmedCode = code.trim().toLowerCase();
+      console.log("Looking for code (trimmed/lowercase):", trimmedCode);
+
       const { data: referralLink, error: linkError } = await supabase
         .from("referral_links")
         .select("*")
-        .eq("code", code)
+        .ilike("code", trimmedCode)
         .maybeSingle();
 
       console.log("Referral link query result:", referralLink, linkError);
@@ -51,10 +60,24 @@ const ReferralRedirect = () => {
       }
 
       if (!referralLink) {
-        throw new Error("Referral code not found");
+        // Try exact match as fallback
+        const { data: exactMatch, error: exactError } = await supabase
+          .from("referral_links")
+          .select("*")
+          .eq("code", code)
+          .maybeSingle();
+        
+        console.log("Exact match attempt:", exactMatch, exactError);
+        
+        if (!exactMatch) {
+          throw new Error("Referral code not found");
+        }
+        
+        // Use exact match if found
+        const referralLink = exactMatch;
       }
 
-      // Then, get the product separately
+      // Get the product separately
       const { data: product, error: productError } = await supabase
         .from("products")
         .select("*")
@@ -90,6 +113,12 @@ const ReferralRedirect = () => {
       localStorage.setItem("referral_code", code);
       localStorage.setItem("referral_link_id", referralLink.id);
       localStorage.setItem("affiliate_id", referralLink.affiliate_id);
+
+      console.log("Successfully found referral link and product:", {
+        referralId: referralLink.id,
+        productId: product.id,
+        productName: product.name
+      });
 
       // Return combined data
       return {
