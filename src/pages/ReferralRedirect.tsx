@@ -36,19 +36,10 @@ const ReferralRedirect = () => {
       }
 
       try {
-        // Simple query to get referral link with product data
+        // First, get the referral link
         const { data: referralLink, error: referralError } = await supabase
           .from("referral_links")
-          .select(`
-            *,
-            products (
-              *,
-              business_profiles (
-                name,
-                verified
-              )
-            )
-          `)
+          .select("*")
           .eq("code", code)
           .maybeSingle();
 
@@ -59,13 +50,31 @@ const ReferralRedirect = () => {
           throw new Error("Failed to fetch referral data");
         }
 
-        if (!referralLink || !referralLink.products) {
+        if (!referralLink) {
           console.error("No referral link found for code:", code);
           throw new Error("Invalid referral code");
         }
 
+        // Then get the product
+        const { data: product, error: productError } = await supabase
+          .from("products")
+          .select(`
+            *,
+            business_profiles (
+              name,
+              verified
+            )
+          `)
+          .eq("id", referralLink.product_id)
+          .single();
+
+        if (productError || !product) {
+          console.error("Product error:", productError);
+          throw new Error("Product not found");
+        }
+
         console.log("Found referral link:", referralLink);
-        console.log("Found product:", referralLink.products);
+        console.log("Found product:", product);
 
         // Update click count (don't wait for this)
         supabase
@@ -83,7 +92,7 @@ const ReferralRedirect = () => {
 
         return {
           ...referralLink,
-          product: referralLink.products
+          product
         };
 
       } catch (err) {
