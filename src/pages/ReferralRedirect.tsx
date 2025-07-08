@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -119,7 +118,15 @@ const ReferralRedirect = () => {
     }
   }, [referralData, paymentStep]);
 
-  const handlePaymentFormSubmit = async (customerData: { email: string; fullName: string; phoneNumber?: string }) => {
+  const handlePaymentFormSubmit = async (customerData: { 
+    email: string; 
+    fullName: string; 
+    phoneNumber?: string;
+    deliveryAddress: string;
+    city: string;
+    state: string;
+    postalCode?: string;
+  }) => {
     if (!referralData?.product) {
       toast({
         title: "Error", 
@@ -136,7 +143,8 @@ const ReferralRedirect = () => {
         productId: referralData.product.id,
         amount: referralData.product.price,
         customerEmail: customerData.email,
-        customerName: customerData.fullName
+        customerName: customerData.fullName,
+        deliveryAddress: `${customerData.deliveryAddress}, ${customerData.city}, ${customerData.state}${customerData.postalCode ? ` ${customerData.postalCode}` : ''}`
       });
 
       // Create pending sale
@@ -161,7 +169,7 @@ const ReferralRedirect = () => {
         tx_ref: txRef,
         customizations: {
           title: referralData.product.name,
-          description: `Purchase of ${referralData.product.name}`,
+          description: `Purchase of ${referralData.product.name} - Delivery to: ${customerData.city}, ${customerData.state}`,
           logo: referralData.product.image_url || "",
         },
       };

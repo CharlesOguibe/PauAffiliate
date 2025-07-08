@@ -7,12 +7,17 @@ import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Loader2, CreditCard } from 'lucide-react';
 
 const paymentFormSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   fullName: z.string().min(2, 'Full name must be at least 2 characters'),
   phoneNumber: z.string().min(10, 'Please enter a valid phone number').optional(),
+  deliveryAddress: z.string().min(10, 'Please enter a complete delivery address'),
+  city: z.string().min(2, 'Please enter your city'),
+  state: z.string().min(2, 'Please enter your state'),
+  postalCode: z.string().min(3, 'Please enter a valid postal code').optional(),
 });
 
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
@@ -32,6 +37,10 @@ const PaymentForm = ({ productName, amount, isLoading, onSubmit, onCancel }: Pay
       email: '',
       fullName: '',
       phoneNumber: '',
+      deliveryAddress: '',
+      city: '',
+      state: '',
+      postalCode: '',
     },
   });
 
@@ -107,6 +116,85 @@ const PaymentForm = ({ productName, amount, isLoading, onSubmit, onCancel }: Pay
                 </FormItem>
               )}
             />
+
+            <div className="border-t pt-4 mt-6">
+              <h3 className="text-lg font-semibold mb-4">Delivery Address</h3>
+              
+              <FormField
+                control={form.control}
+                name="deliveryAddress"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street Address *</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Enter your complete street address" 
+                        {...field} 
+                        disabled={isLoading}
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Lagos" 
+                          {...field} 
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Lagos State" 
+                          {...field} 
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="postalCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Postal Code (Optional)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="100001" 
+                        {...field} 
+                        disabled={isLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="flex space-x-3 pt-4">
               <Button
