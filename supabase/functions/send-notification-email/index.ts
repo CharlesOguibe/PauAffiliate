@@ -45,6 +45,9 @@ serve(async (req) => {
       )
     }
 
+    // Extract server prefix from API key (format: key-server)
+    const serverPrefix = mailchimpApiKey.includes('-') ? mailchimpApiKey.split('-')[1] : 'us1'
+
     const requestBody = await req.json()
     console.log('Request body received:', JSON.stringify(requestBody, null, 2))
     
@@ -148,28 +151,121 @@ serve(async (req) => {
       )
     }
 
-    console.log('Email HTML rendered successfully')
-    console.log('Email will be sent to:', testRecipientEmail)
+    console.log('Email HTML rendered successfully, sending via Mailchimp...')
+    console.log('Sending to test email:', testRecipientEmail)
     console.log('Subject:', subject)
 
-    // TODO: Implement Mailchimp transactional email sending
-    // For now, we'll return a success response indicating the email is ready to be sent
-    console.log('Email prepared for Mailchimp sending')
+    // Send email via Mailchimp Transactional API (Mandrill)
+    const mailchimpResponse = await fetch(`https://mandrillapp.com/api/1.0/messages/send.json`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        key: mailchimpApiKey,
+        message: {
+          html: emailHtml,
+          subject: subject,
+          from_email: 'noreply@pauaffiliate.com',
+          from_name: 'PAUAffiliate',
+          to: [
+            {
+              email: testRecipientEmail,
+              name: userName,
+              type: 'to'
+            }
+          ],
+          headers: {
+            'Reply-To': 'support@pauaffiliate.com'
+          },
+          important: false,
+          track_opens: true,
+          track_clicks: true,
+          auto_text: true,
+          auto_html: false,
+          preserve_recipients: false,
+          view_content_link: false,
+          tracking_domain: null,
+          signing_domain: null,
+          return_path_domain: null,
+          merge: true,
+          merge_language: 'mailchimp'
+        },
+        async: false,
+        ip_pool: 'Main Pool'
+      })
+    })
 
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Email prepared for Mailchimp delivery', 
-        sentTo: testRecipientEmail,
-        subject: subject,
-        timestamp: new Date().toISOString(),
-        note: 'Mailchimp integration pending - email template rendered successfully'
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    if (!mailchimpResponse.ok) {
+      const mailchimpError = await mailchimpResponse.text()
+      console.error('Mailchimp API error:', mailchimpError)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Mailchimp API error: ${mailchimpError}`,
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    const mailchimpData = await mailchimpResponse.json()
+    console.log('Mailchimp response:', mailchimpData)
+
+    // Check if there are any errors in the response
+    if (Array.isArray(mailchimpData) && mailchimpData.length > 0) {
+      const firstResult = mailchimpData[0]
+      if (firstResult.status === 'rejected' || firstResult.status === 'invalid') {
+        console.error('Email rejected by Mailchimp:', firstResult.reject_reason)
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: `Email rejected: ${firstResult.reject_reason}`,
+            timestamp: new Date().toISOString()
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        )
       }
-    )
+      
+      console.log('Email sent successfully via Mailchimp to:', testRecipientEmail, 'Message ID:', firstResult._id)
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: 'Email sent successfully via Mailchimp', 
+          messageId: firstResult._id,
+          status: firstResult.status,
+          sentTo: testRecipientEmail,
+          subject: subject,
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    } else {
+      // Handle unexpected response format
+      console.error('Unexpected Mailchimp response format:', mailchimpData)
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Unexpected response from Mailchimp API',
+          timestamp: new Date().toISOString()
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
   } catch (error) {
     console.error('Error in send-notification-email function:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
