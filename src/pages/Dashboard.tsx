@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -33,6 +32,7 @@ import ReferralLinksTable from '@/components/dashboard/ReferralLinksTable';
 import BusinessMetrics from '@/components/dashboard/BusinessMetrics';
 import TestFundsButton from '@/components/admin/TestFundsButton';
 import TestEmailButton from '@/components/dashboard/TestEmailButton';
+import DashboardHeader from '@/components/dashboard/DashboardHeader';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -129,49 +129,37 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-secondary/50">
-      <header className="glass shadow-sm px-4 py-3 sticky top-0 z-10">
-        <div className="container mx-auto flex justify-between items-center">
-          <Link to="/" className="text-xl font-semibold tracking-tight">
-            <span className="text-primary">PAU</span>Affiliate
-          </Link>
-          
-          <div className="flex items-center space-x-4">
-            <NotificationBell 
-              notifications={notifications}
-              onMarkAsRead={handleMarkNotificationAsRead}
-              onClearAll={handleClearNotifications}
-            />
-            {isAffiliateUser && <TestFundsButton />}
-            {user && (
-              <TestEmailButton 
-                userEmail={user.email} 
-                userName={user.name || 'User'} 
-              />
-            )}
-            <Link to="/">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-1" />
-                Home
-              </Button>
-            </Link>
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-1" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader
+        user={user}
+        notifications={notifications}
+        onMarkNotificationAsRead={handleMarkNotificationAsRead}
+        onClearNotifications={handleClearNotifications}
+        onLogout={handleLogout}
+      />
       
-      <main className="container mx-auto py-8 px-4">
+      <main className="container mx-auto py-8 px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-medium tracking-tight">
-            Welcome back, {user?.name}!
-            {isAdminUser && <Shield className="inline-block h-6 w-6 ml-2 text-yellow-500" />}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Your {isAffiliateUser ? 'affiliate' : isBusinessUser ? 'business' : 'admin'} dashboard overview
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-medium tracking-tight flex items-center gap-3">
+                Welcome back, {user?.name}!
+                {isAdminUser && <Shield className="h-6 w-6 text-yellow-500" />}
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Your {isAffiliateUser ? 'affiliate' : isBusinessUser ? 'business' : 'admin'} dashboard overview
+              </p>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {isAffiliateUser && <TestFundsButton />}
+              {user && (
+                <TestEmailButton 
+                  userEmail={user.email} 
+                  userName={user.name || 'User'} 
+                />
+              )}
+            </div>
+          </div>
         </div>
 
         {isAdminUser && <AdminPanel />}
