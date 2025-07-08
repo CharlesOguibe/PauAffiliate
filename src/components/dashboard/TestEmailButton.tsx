@@ -23,7 +23,7 @@ const TestEmailButton = ({ userEmail, userName }: TestEmailButtonProps) => {
         userName,
         {
           title: 'Test Email Notification',
-          message: 'This is a test email to verify that the notification system is working correctly. If you received this email, the system is functioning properly!',
+          message: 'This is a test email to verify that the EmailJS notification system is working correctly. If you received this email, the system is functioning properly!',
           notificationType: 'success'
         }
       );
@@ -31,7 +31,7 @@ const TestEmailButton = ({ userEmail, userName }: TestEmailButtonProps) => {
       if (result.success) {
         toast({
           title: "Email Sent Successfully!",
-          description: "A test notification email has been sent to your inbox.",
+          description: "A test notification email has been sent via EmailJS to your inbox.",
         });
       } else {
         throw new Error(result.error || 'Failed to send email');
@@ -40,7 +40,7 @@ const TestEmailButton = ({ userEmail, userName }: TestEmailButtonProps) => {
       console.error('Error sending test email:', error);
       toast({
         title: "Error",
-        description: "Failed to send test email. Please try again.",
+        description: "Failed to send test email via EmailJS. Please check your EmailJS configuration.",
         variant: "destructive"
       });
     } finally {

@@ -1,127 +1,33 @@
 
 import React, { useState } from 'react';
-import { Banknote, AlertCircle } from 'lucide-react';
-import Button from '@/components/ui/custom/Button';
 import GlassCard from '@/components/ui/custom/GlassCard';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { sendWithdrawalRequestEmail, sendGeneralNotificationEmail } from '@/utils/emailNotifications';
-import { notifyAdminsOfWithdrawalRequest } from '@/utils/adminNotifications';
-import { useAuth } from '@/contexts/AuthContext';
+import { useWithdrawalSubmit } from '@/hooks/useWithdrawalSubmit';
+import WithdrawalHeader from './WithdrawalHeader';
+import WithdrawalInfo from './WithdrawalInfo';
+import WithdrawalForm from './WithdrawalForm';
+import { BankDetails } from './types';
 
 interface WithdrawalRequestProps {
   availableBalance: number;
   onWithdrawalRequest: (amount: number, bankDetails: BankDetails) => Promise<void>;
 }
 
-interface BankDetails {
-  bankName: string;
-  accountNumber: string;
-  accountName: string;
-}
-
 const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: WithdrawalRequestProps) => {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [amount, setAmount] = useState('');
-  const [bankDetails, setBankDetails] = useState<BankDetails>({
-    bankName: '',
-    accountNumber: '',
-    accountName: ''
-  });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { validateWithdrawal, sendNotifications } = useWithdrawalSubmit();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const withdrawalAmount = parseFloat(amount);
-    
-    if (withdrawalAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid withdrawal amount.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (withdrawalAmount > availableBalance) {
-      toast({
-        title: "Insufficient Balance",
-        description: "You don't have enough balance for this withdrawal.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (withdrawalAmount < 1000) {
-      toast({
-        title: "Minimum Withdrawal",
-        description: "Minimum withdrawal amount is ₦1,000.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!bankDetails.bankName || !bankDetails.accountNumber || !bankDetails.accountName) {
-      toast({
-        title: "Missing Bank Details",
-        description: "Please fill in all bank details.",
-        variant: "destructive",
-      });
+  const handleSubmit = async (amount: number, bankDetails: BankDetails) => {
+    if (!validateWithdrawal(amount, availableBalance, bankDetails)) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onWithdrawalRequest(withdrawalAmount, bankDetails);
+      await onWithdrawalRequest(amount, bankDetails);
+      await sendNotifications(amount, bankDetails);
       
-      // Send email notification to user
-      if (user?.email && user?.name) {
-        await sendWithdrawalRequestEmail(
-          user.email,
-          user.name,
-          {
-            amount: withdrawalAmount,
-            bankName: bankDetails.bankName,
-            accountNumber: bankDetails.accountNumber,
-            accountName: bankDetails.accountName
-          }
-        );
-
-        // Also send a copy to monitoring email
-        await sendWithdrawalRequestEmail(
-          'cjoguibe@gmail.com',
-          'Admin (Copy)',
-          {
-            amount: withdrawalAmount,
-            bankName: bankDetails.bankName,
-            accountNumber: bankDetails.accountNumber,
-            accountName: bankDetails.accountName
-          }
-        );
-
-        // Also send a general notification to the user
-        await sendGeneralNotificationEmail(
-          user.email,
-          user.name,
-          {
-            title: 'Withdrawal Request Submitted',
-            message: `Your withdrawal request for ₦${withdrawalAmount.toFixed(2)} has been submitted and is under review. You will be notified once it's processed.`,
-            notificationType: 'info'
-          }
-        );
-
-        // Notify all admin users about the new withdrawal request
-        await notifyAdminsOfWithdrawalRequest(
-          withdrawalAmount,
-          user.email,
-          bankDetails
-        );
-      }
-      
-      setAmount('');
-      setBankDetails({ bankName: '', accountNumber: '', accountName: '' });
       toast({
         title: "Withdrawal Requested",
         description: "Your withdrawal request has been submitted and will be processed within 24-48 hours. Check your email for confirmation.",
@@ -140,93 +46,13 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
   return (
     <GlassCard>
       <div className="p-6">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="bg-primary/10 p-2 rounded-full">
-            <Banknote className="h-5 w-5 text-primary" />
-          </div>
-          <h3 className="text-lg font-semibold">Request Withdrawal</h3>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <p className="text-sm text-blue-700">
-              Available Balance: <span className="font-semibold">₦{availableBalance.toFixed(2)}</span>
-            </p>
-          </div>
-          <p className="text-xs text-blue-600 mt-1">
-            Withdrawals are processed within 24-48 hours. You'll receive email notifications about status updates.
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Withdrawal Amount (₦)
-            </label>
-            <Input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount to withdraw"
-              min="1000"
-              max={availableBalance}
-              step="0.01"
-              required
-            />
-            <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: ₦1,000</p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Bank Name
-            </label>
-            <Input
-              type="text"
-              value={bankDetails.bankName}
-              onChange={(e) => setBankDetails(prev => ({ ...prev, bankName: e.target.value }))}
-              placeholder="Enter your bank name"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Account Number
-            </label>
-            <Input
-              type="text"
-              value={bankDetails.accountNumber}
-              onChange={(e) => setBankDetails(prev => ({ ...prev, accountNumber: e.target.value }))}
-              placeholder="Enter your account number"
-              pattern="[0-9]{10}"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-2">
-              Account Name
-            </label>
-            <Input
-              type="text"
-              value={bankDetails.accountName}
-              onChange={(e) => setBankDetails(prev => ({ ...prev, accountName: e.target.value }))}
-              placeholder="Enter account holder name"
-              required
-            />
-          </div>
-
-          <Button
-            type="submit"
-            isLoading={isSubmitting}
-            loadingText="Submitting..."
-            className="w-full"
-            disabled={availableBalance < 1000}
-          >
-            Request Withdrawal
-          </Button>
-        </form>
+        <WithdrawalHeader />
+        <WithdrawalInfo availableBalance={availableBalance} />
+        <WithdrawalForm
+          availableBalance={availableBalance}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+        />
       </div>
     </GlassCard>
   );

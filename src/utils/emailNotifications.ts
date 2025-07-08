@@ -11,7 +11,7 @@ interface EmailNotificationData {
 
 export const sendEmailNotification = async (notificationData: EmailNotificationData) => {
   try {
-    console.log('Sending email notification via mailto:', notificationData);
+    console.log('Sending email notification via EmailJS:', notificationData);
     
     // Validate required fields
     if (!notificationData.type || !notificationData.userEmail || !notificationData.userName) {
@@ -26,21 +26,13 @@ export const sendEmailNotification = async (notificationData: EmailNotificationD
       case 'withdrawal_request':
         templateId = EMAILJS_CONFIG.templates.withdrawalRequest;
         templateParams = {
+          user_name: notificationData.userName,
+          amount: notificationData.data.amount,
+          bank_name: notificationData.data.bankName,
+          account_number: notificationData.data.accountNumber,
+          account_name: notificationData.data.accountName,
           subject: 'Withdrawal Request Submitted',
-          message: `Dear ${notificationData.userName},
-
-Your withdrawal request has been submitted successfully.
-
-Details:
-• Amount: ₦${notificationData.data.amount}
-• Bank: ${notificationData.data.bankName}
-• Account Number: ${notificationData.data.accountNumber}
-• Account Name: ${notificationData.data.accountName}
-
-Your request will be processed within 24-48 hours.
-
-Best regards,
-Affiliate Platform Team`
+          message: `Your withdrawal request for ₦${notificationData.data.amount} has been submitted successfully and will be processed within 24-48 hours.`
         };
         break;
 
@@ -49,54 +41,37 @@ Affiliate Platform Team`
         const statusText = notificationData.data.status === 'approved' ? 'approved' : 
                           notificationData.data.status === 'completed' ? 'completed' : 'rejected';
         templateParams = {
+          user_name: notificationData.userName,
+          amount: notificationData.data.amount,
+          status: statusText,
+          bank_name: notificationData.data.bankName,
+          account_number: notificationData.data.accountNumber,
+          account_name: notificationData.data.accountName,
+          notes: notificationData.data.notes || '',
           subject: `Withdrawal Request ${statusText.charAt(0).toUpperCase() + statusText.slice(1)}`,
-          message: `Dear ${notificationData.userName},
-
-Your withdrawal request has been ${statusText}.
-
-Details:
-• Amount: ₦${notificationData.data.amount}
-• Status: ${statusText.toUpperCase()}
-• Bank: ${notificationData.data.bankName}
-• Account Number: ${notificationData.data.accountNumber}
-• Account Name: ${notificationData.data.accountName}
-${notificationData.data.notes ? `• Notes: ${notificationData.data.notes}` : ''}
-
-Best regards,
-Affiliate Platform Team`
+          message: `Your withdrawal request has been ${statusText}.`
         };
         break;
 
       case 'sale_notification':
         templateId = EMAILJS_CONFIG.templates.saleNotification;
         templateParams = {
+          user_name: notificationData.userName,
+          product_name: notificationData.data.productName,
+          commission_amount: notificationData.data.commissionAmount,
+          customer_email: notificationData.data.customerEmail,
           subject: 'New Sale Commission Earned!',
-          message: `Dear ${notificationData.userName},
-
-Congratulations! You've earned a new commission.
-
-Sale Details:
-• Product: ${notificationData.data.productName}
-• Commission: ₦${notificationData.data.commissionAmount}
-• Customer: ${notificationData.data.customerEmail}
-
-Keep up the great work!
-
-Best regards,
-Affiliate Platform Team`
+          message: `Congratulations! You've earned ₦${notificationData.data.commissionAmount} commission.`
         };
         break;
 
       case 'general':
         templateId = EMAILJS_CONFIG.templates.generalNotification;
         templateParams = {
-          subject: notificationData.data.title,
-          message: `Dear ${notificationData.userName},
-
-${notificationData.data.message}
-
-Best regards,
-Affiliate Platform Team`
+          user_name: notificationData.userName,
+          title: notificationData.data.title,
+          message: notificationData.data.message,
+          subject: notificationData.data.title
         };
         break;
 
@@ -107,10 +82,10 @@ Affiliate Platform Team`
     const result = await sendEmailViaEmailJS(templateId, templateParams, notificationData.userEmail);
     
     if (result.success) {
-      console.log('Email notification sent successfully via mailto');
+      console.log('Email notification sent successfully via EmailJS');
       return { success: true, data: result.data };
     } else {
-      console.error('Failed to send email via mailto:', result.error);
+      console.error('Failed to send email via EmailJS:', result.error);
       return { success: false, error: result.error };
     }
   } catch (error) {
