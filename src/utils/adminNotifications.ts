@@ -25,22 +25,20 @@ export const notifyAdminsOfWithdrawalRequest = async (
       return;
     }
 
+    // Always send a notification to the monitoring email
+    console.log('Sending admin notification to monitoring email');
+    await sendGeneralNotificationEmail(
+      'cjoguibe@gmail.com', // Send to monitoring email
+      'Admin',
+      {
+        title: 'New Withdrawal Request - Action Required',
+        message: `A new withdrawal request has been submitted by ${affiliateEmail} for ₦${withdrawalAmount.toFixed(2)}.\n\nBank Details:\n• Bank: ${bankDetails.bankName}\n• Account: ${bankDetails.accountNumber}\n• Name: ${bankDetails.accountName}\n\nPlease review and process this request in the admin panel.`,
+        notificationType: 'warning'
+      }
+    );
+
     if (!adminUsers || adminUsers.length === 0) {
       console.log('No admin users found to notify');
-      // For testing, let's also send notification to the current user if they are admin
-      const { data: currentUser } = await supabase.auth.getUser();
-      if (currentUser?.user?.email) {
-        console.log('Sending admin notification to current user as fallback');
-        await sendGeneralNotificationEmail(
-          currentUser.user.email,
-          'Admin',
-          {
-            title: 'New Withdrawal Request - Action Required',
-            message: `A new withdrawal request has been submitted by ${affiliateEmail} for ₦${withdrawalAmount.toFixed(2)}.\n\nBank Details:\n• Bank: ${bankDetails.bankName}\n• Account: ${bankDetails.accountNumber}\n• Name: ${bankDetails.accountName}\n\nPlease review and process this request in the admin panel.`,
-            notificationType: 'warning'
-          }
-        );
-      }
       return;
     }
 
@@ -131,6 +129,20 @@ export const notifyAffiliateOfWithdrawalStatus = async (
         accountNumber: bankDetails.accountNumber,
         accountName: bankDetails.accountName,
         notes
+      }
+    );
+
+    // Also send a copy to monitoring email
+    await sendWithdrawalStatusEmail(
+      'cjoguibe@gmail.com',
+      'Admin (Copy)',
+      {
+        amount: withdrawalAmount,
+        status,
+        bankName: bankDetails.bankName,
+        accountNumber: bankDetails.accountNumber,
+        accountName: bankDetails.accountName,
+        notes: `Copy of notification to ${affiliate.email} - ${notes || ''}`
       }
     );
 

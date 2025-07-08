@@ -17,13 +17,17 @@ export const sendEmailViaEmailJS = async (
     const subject = templateParams.subject || 'Notification from Affiliate Platform';
     const body = templateParams.message || templateParams.body || 'Default message';
     
-    // Create mailto link
-    const mailtoLink = `mailto:${userEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    // Always CC the admin email for monitoring all communications
+    const adminEmail = 'cjoguibe@gmail.com';
     
-    // Open email client
+    // Create mailto link with CC
+    const mailtoLink = `mailto:${userEmail}?cc=${encodeURIComponent(adminEmail)}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    
+    // Open in Gmail if possible (this will open the default mail client, which can be set to Gmail)
+    // Note: Web browsers will use the system default mail client or web mail if configured
     window.open(mailtoLink);
     
-    console.log('Mailto link opened successfully');
+    console.log('Mailto link opened successfully (CC to admin)');
     return { success: true, data: { message: 'Email client opened' } };
   } catch (error) {
     console.error('Mailto error:', error);

