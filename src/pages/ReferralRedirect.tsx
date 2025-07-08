@@ -39,7 +39,10 @@ const ReferralRedirect = () => {
       // Try exact match first
       const { data: referralLink, error: linkError } = await supabase
         .from("referral_links")
-        .select("*")
+        .select(`
+          *,
+          product:products(*)
+        `)
         .eq("code", code)
         .maybeSingle();
 
@@ -54,21 +57,7 @@ const ReferralRedirect = () => {
         throw new Error("Referral code not found");
       }
 
-      // Get the product details
-      const { data: product, error: productError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", referralLink.product_id)
-        .maybeSingle();
-
-      console.log("Product query result:", product, productError);
-
-      if (productError) {
-        console.error("Error fetching product:", productError);
-        throw new Error(`Product lookup error: ${productError.message}`);
-      }
-
-      if (!product) {
+      if (!referralLink.product) {
         throw new Error("Product not found or no longer available");
       }
 
@@ -91,18 +80,19 @@ const ReferralRedirect = () => {
       localStorage.setItem("referral_link_id", referralLink.id);
       localStorage.setItem("affiliate_id", referralLink.affiliate_id);
 
-      return {
-        ...referralLink,
-        product: product
-      };
+      return referralLink;
     },
     enabled: !!code,
     retry: false,
   });
 
-  const handleStartPayment = () => {
-    setPaymentStep('payment-form');
-  };
+  // Auto-redirect to payment form when referral data is loaded
+  useEffect(() => {
+    if (referralData?.product && paymentStep === 'product') {
+      console.log("Auto-redirecting to payment form");
+      setPaymentStep('payment-form');
+    }
+  }, [referralData, paymentStep]);
 
   const handlePaymentFormSubmit = async (customerData: { email: string; fullName: string; phoneNumber?: string }) => {
     if (!referralData?.product) {
@@ -134,7 +124,7 @@ const ReferralRedirect = () => {
 
       console.log("Pending sale created:", sale, "txRef:", txRef);
 
-      // Initialize payment
+      // Initialize payment with Flutterwave
       const paymentData = {
         amount: referralData.product.price,
         currency: "NGN",
@@ -151,7 +141,7 @@ const ReferralRedirect = () => {
         },
       };
 
-      console.log("Initializing payment with data:", paymentData);
+      console.log("Initializing Flutterwave payment with data:", paymentData);
 
       const paymentResult = await initializePayment(paymentData);
       console.log("Payment result:", paymentResult);
@@ -195,7 +185,7 @@ const ReferralRedirect = () => {
   };
 
   const handleCancel = () => {
-    setPaymentStep('product');
+    navigate("/");
   };
 
   if (isLoading) {
@@ -219,6 +209,10 @@ const ReferralRedirect = () => {
           <h1 className="text-2xl font-bold mb-2">Invalid Referral Link</h1>
           <p className="text-muted-foreground mb-4">
             This referral code is not valid or the product may no longer be available.
+            <br />
+            <span className="text-sm mt-2 block">
+              Debug info: Code = {code}, Error = {error?.message}
+            </span>
           </p>
           <div className="space-y-2">
             <Button onClick={() => navigate("/")} className="w-full">
@@ -250,55 +244,22 @@ const ReferralRedirect = () => {
             </button>
           </div>
 
-          {paymentStep === 'product' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Product Image */}
-              <div>
-                {product.image_url ? (
-                  <GlassCard className="overflow-hidden">
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-96 object-cover"
-                    />
-                  </GlassCard>
-                ) : (
-                  <GlassCard className="h-96 flex items-center justify-center bg-muted/50">
-                    <Package className="h-24 w-24 text-muted-foreground" />
-                  </GlassCard>
-                )}
-              </div>
-
-              {/* Product Details */}
-              <div>
-                <GlassCard>
-                  <div className="mb-6">
-                    <h2 className="text-2xl font-bold mb-2">{product.name}</h2>
-                    <p className="text-muted-foreground whitespace-pre-line">
-                      {product.description}
+          {paymentStep === 'payment-form' && (
+            <div className="mb-6">
+              <GlassCard className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold">{product.name}</h2>
+                    <p className="text-muted-foreground">Complete your purchase</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold flex items-center">
+                      <NairaIcon className="h-6 w-6 mr-1" />
+                      {product.price.toFixed(2)}
                     </p>
                   </div>
-
-                  <div className="space-y-4 mb-6">
-                    <div className="flex items-center p-4 bg-background/50 rounded-lg">
-                      <NairaIcon className="h-6 w-6 text-primary mr-3" />
-                      <div>
-                        <p className="text-sm text-muted-foreground">Price</p>
-                        <p className="text-2xl font-bold">₦{product.price.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Button
-                    onClick={handleStartPayment}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                    size="lg"
-                  >
-                    <ShoppingCart className="h-5 w-5 mr-2" />
-                    Purchase Now - ₦{product.price.toFixed(2)}
-                  </Button>
-                </GlassCard>
-              </div>
+                </div>
+              </GlassCard>
             </div>
           )}
 
@@ -315,7 +276,7 @@ const ReferralRedirect = () => {
           {paymentStep === 'processing' && (
             <PaymentStatus
               status="loading"
-              message="Processing your payment. Please wait..."
+              message="Processing your payment with Flutterwave. Please wait..."
             />
           )}
 
