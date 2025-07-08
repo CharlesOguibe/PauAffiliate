@@ -29,158 +29,105 @@ const ReferralRedirect = () => {
   } = useQuery({
     queryKey: ["referral", code],
     queryFn: async () => {
-      console.log("=== COMPREHENSIVE REFERRAL LINK DEBUGGING ===");
-      console.log("Processing referral code:", code);
-      console.log("Code type:", typeof code);
-      console.log("Code length:", code?.length);
-      console.log("Code raw characters:", Array.from(code || '').map(char => `${char} (${char.charCodeAt(0)})`));
+      console.log("=== REFERRAL LINK LOOKUP DEBUG ===");
+      console.log("Looking for referral code:", code);
 
       if (!code) {
         throw new Error("No referral code provided");
       }
 
-      // Let's check database connection and table structure first
-      console.log("Testing database connection and table structure...");
-      
-      // Check if we can access the referral_links table at all
-      const { data: tableTest, error: tableTestError } = await supabase
-        .from("referral_links")
-        .select("count", { count: 'exact' });
-      
-      console.log("Table access test:", { tableTest, tableTestError });
+      // Clean the code - remove any whitespace and convert to lowercase for comparison
+      const cleanCode = code.trim().toLowerCase();
+      console.log("Cleaned code for lookup:", cleanCode);
 
-      // Get ALL referral links to see what's in the database
-      const { data: allLinks, error: allLinksError } = await supabase
+      // Try exact match first
+      console.log("Trying exact match...");
+      const { data: exactMatch, error: exactError } = await supabase
+        .from("referral_links")
+        .select(`
+          *,
+          product:products(*)
+        `)
+        .eq("code", code)
+        .maybeSingle();
+
+      console.log("Exact match result:", { exactMatch, exactError });
+
+      if (exactMatch?.product) {
+        console.log("Found exact match!");
+        return {
+          ...exactMatch,
+          product: exactMatch.product
+        };
+      }
+
+      // Try case-insensitive match
+      console.log("Trying case-insensitive match...");
+      const { data: caseInsensitiveMatch, error: caseError } = await supabase
+        .from("referral_links")
+        .select(`
+          *,
+          product:products(*)
+        `)
+        .ilike("code", cleanCode)
+        .maybeSingle();
+
+      console.log("Case-insensitive match result:", { caseInsensitiveMatch, caseError });
+
+      if (caseInsensitiveMatch?.product) {
+        console.log("Found case-insensitive match!");
+        return {
+          ...caseInsensitiveMatch,
+          product: caseInsensitiveMatch.product
+        };
+      }
+
+      // Get ALL referral links to debug
+      console.log("Getting all referral links for debugging...");
+      const { data: allLinks, error: allError } = await supabase
         .from("referral_links")
         .select("*");
 
-      console.log("ALL referral links in database:", allLinks);
-      console.log("Database query error:", allLinksError);
+      console.log("All referral links:", allLinks);
+      console.log("Available codes:", allLinks?.map(link => `"${link.code}"`));
 
-      if (allLinksError) {
-        console.error("Cannot access referral_links table:", allLinksError);
-        throw new Error(`Database access error: ${allLinksError.message}`);
-      }
+      if (allLinks && allLinks.length > 0) {
+        // Try manual search
+        const manualMatch = allLinks.find(link => 
+          link.code === code || 
+          link.code.toLowerCase() === cleanCode ||
+          link.code.trim() === code.trim()
+        );
 
-      if (!allLinks || allLinks.length === 0) {
-        console.log("No referral links found in database at all!");
-        throw new Error("No referral links exist in the database");
-      }
-
-      // Check if our specific code exists in any form
-      const exactCodeMatch = allLinks.find(link => link.code === code);
-      const lowercaseMatch = allLinks.find(link => link.code.toLowerCase() === code.toLowerCase());
-      const trimmedMatch = allLinks.find(link => link.code.trim() === code.trim());
-      
-      console.log("Code matching analysis:");
-      console.log("- Looking for code:", code);
-      console.log("- Exact match found:", exactCodeMatch);
-      console.log("- Lowercase match found:", lowercaseMatch);
-      console.log("- Trimmed match found:", trimmedMatch);
-      console.log("- Available codes:", allLinks.map(link => `"${link.code}"`));
-
-      // Try the original query approach
-      const trimmedCode = code.trim().toLowerCase();
-      console.log("Trying case-insensitive query with:", trimmedCode);
-
-      const { data: referralLink, error: linkError } = await supabase
-        .from("referral_links")
-        .select("*")
-        .ilike("code", trimmedCode)
-        .maybeSingle();
-
-      console.log("Case-insensitive query result:", referralLink, linkError);
-
-      let finalReferralLink = referralLink;
-
-      if (!referralLink) {
-        console.log("Case-insensitive query failed, trying exact match...");
-        
-        const { data: exactMatch, error: exactError } = await supabase
-          .from("referral_links")
-          .select("*")
-          .eq("code", code)
-          .maybeSingle();
-        
-        console.log("Exact match query result:", exactMatch, exactError);
-        
-        if (!exactMatch) {
-          console.log("Both queries failed. Trying manual array search...");
+        if (manualMatch) {
+          console.log("Found manual match:", manualMatch);
           
-          // Manual search through all links
-          const manualMatch = allLinks.find(link => 
-            link.code === code || 
-            link.code.toLowerCase() === code.toLowerCase() ||
-            link.code.trim() === code.trim() ||
-            link.code.trim().toLowerCase() === code.trim().toLowerCase()
-          );
-          
-          console.log("Manual search result:", manualMatch);
-          
-          if (manualMatch) {
-            finalReferralLink = manualMatch;
-            console.log("Found match through manual search!");
-          } else {
-            console.error("No match found through any method");
-            throw new Error("Referral code not found");
+          // Get the product separately
+          const { data: product, error: productError } = await supabase
+            .from("products")
+            .select("*")
+            .eq("id", manualMatch.product_id)
+            .maybeSingle();
+
+          if (product) {
+            console.log("Found product for manual match:", product);
+            
+            // Update click count
+            await supabase
+              .from("referral_links")
+              .update({ clicks: (manualMatch.clicks || 0) + 1 })
+              .eq("id", manualMatch.id);
+
+            return {
+              ...manualMatch,
+              product
+            };
           }
-        } else {
-          finalReferralLink = exactMatch;
         }
       }
 
-      console.log("Final referral link selected:", finalReferralLink);
-
-      // Get the product separately
-      const { data: product, error: productError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("id", finalReferralLink.product_id)
-        .maybeSingle();
-
-      console.log("Product query result:", product, productError);
-
-      if (productError) {
-        console.error("Product database error:", productError);
-        throw new Error(`Product database error: ${productError.message}`);
-      }
-
-      if (!product) {
-        throw new Error("Product not found or no longer available");
-      }
-
-      // Update click count
-      try {
-        const { error: updateError } = await supabase
-          .from("referral_links")
-          .update({ clicks: (finalReferralLink.clicks || 0) + 1 })
-          .eq("id", finalReferralLink.id);
-
-        if (updateError) {
-          console.log("Could not update clicks:", updateError);
-        } else {
-          console.log("Click count updated successfully");
-        }
-      } catch (updateError) {
-        console.log("Could not update clicks, but continuing:", updateError);
-      }
-
-      // Store referral info in localStorage
-      localStorage.setItem("referral_code", code);
-      localStorage.setItem("referral_link_id", finalReferralLink.id);
-      localStorage.setItem("affiliate_id", finalReferralLink.affiliate_id);
-
-      console.log("Successfully found referral link and product:", {
-        referralId: finalReferralLink.id,
-        productId: product.id,
-        productName: product.name
-      });
-
-      // Return combined data
-      return {
-        ...finalReferralLink,
-        product
-      };
+      console.error("No referral link found for code:", code);
+      throw new Error("Referral code not found");
     },
     enabled: !!code,
     retry: false,
@@ -309,10 +256,6 @@ const ReferralRedirect = () => {
           <h1 className="text-2xl font-bold mb-2">Invalid Referral Link</h1>
           <p className="text-muted-foreground mb-4">
             This referral code is not valid or the product may no longer be available.
-            <br />
-            <span className="text-sm mt-2 block">
-              Debug info: Code = {code}, Error = {error?.message}
-            </span>
           </p>
           <div className="space-y-2">
             <Button onClick={() => navigate("/")} className="w-full">
