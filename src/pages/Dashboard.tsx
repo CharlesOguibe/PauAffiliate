@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -31,6 +32,7 @@ import ProductList from '@/components/products/ProductList';
 import ReferralLinksTable from '@/components/dashboard/ReferralLinksTable';
 import BusinessMetrics from '@/components/dashboard/BusinessMetrics';
 import TestFundsButton from '@/components/admin/TestFundsButton';
+import TestEmailButton from '@/components/dashboard/TestEmailButton';
 
 const Dashboard = () => {
   const { user, signOut } = useAuth();
@@ -140,6 +142,12 @@ const Dashboard = () => {
               onClearAll={handleClearNotifications}
             />
             {isAffiliateUser && <TestFundsButton />}
+            {user && (
+              <TestEmailButton 
+                userEmail={user.email} 
+                userName={user.name || 'User'} 
+              />
+            )}
             <Link to="/">
               <Button variant="ghost" size="sm">
                 <ArrowLeft className="h-4 w-4 mr-1" />

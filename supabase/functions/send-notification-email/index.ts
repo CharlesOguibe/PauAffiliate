@@ -1,6 +1,5 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
-import { Resend } from 'npm:resend@4.0.0'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import React from 'npm:react@18.3.1'
 import { WithdrawalRequestEmail } from './_templates/withdrawal-request.tsx'
@@ -29,14 +28,14 @@ serve(async (req) => {
   }
 
   try {
-    // Check if RESEND_API_KEY exists
-    const resendApiKey = Deno.env.get('RESEND_API_KEY')
-    if (!resendApiKey) {
-      console.error('RESEND_API_KEY is not set')
+    // Check if BREVO_API_KEY exists
+    const brevoApiKey = Deno.env.get('BREVO_API_KEY')
+    if (!brevoApiKey) {
+      console.error('BREVO_API_KEY is not set')
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'RESEND_API_KEY is not configured',
+          error: 'BREVO_API_KEY is not configured',
           timestamp: new Date().toISOString()
         }),
         {
@@ -45,8 +44,6 @@ serve(async (req) => {
         }
       )
     }
-
-    const resend = new Resend(resendApiKey)
 
     const requestBody = await req.json()
     console.log('Request body received:', JSON.stringify(requestBody, null, 2))
@@ -149,23 +146,41 @@ serve(async (req) => {
       )
     }
 
-    console.log('Email HTML rendered successfully, sending via Resend...')
+    console.log('Email HTML rendered successfully, sending via Brevo...')
     console.log('Sending to email:', userEmail)
     console.log('Subject:', subject)
 
-    const { data: emailData, error: resendError } = await resend.emails.send({
-      from: 'PAUAffiliate <onboarding@resend.dev>',
-      to: [userEmail],
-      subject,
-      html: emailHtml,
+    // Send email via Brevo API
+    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': brevoApiKey,
+      },
+      body: JSON.stringify({
+        sender: {
+          name: 'PAUAffiliate',
+          email: 'noreply@pauaffiliate.com'
+        },
+        to: [
+          {
+            email: userEmail,
+            name: userName
+          }
+        ],
+        subject: subject,
+        htmlContent: emailHtml
+      })
     })
 
-    if (resendError) {
-      console.error('Resend error:', resendError)
+    if (!brevoResponse.ok) {
+      const brevoError = await brevoResponse.text()
+      console.error('Brevo API error:', brevoError)
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Resend error: ${resendError.message || 'Unknown resend error'}`,
+          error: `Brevo API error: ${brevoError}`,
           timestamp: new Date().toISOString()
         }),
         {
@@ -175,13 +190,14 @@ serve(async (req) => {
       )
     }
 
-    console.log('Email sent successfully to:', userEmail, 'Email ID:', emailData?.id)
+    const brevoData = await brevoResponse.json()
+    console.log('Email sent successfully via Brevo to:', userEmail, 'Message ID:', brevoData.messageId)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Email sent successfully', 
-        emailId: emailData?.id,
+        message: 'Email sent successfully via Brevo', 
+        messageId: brevoData.messageId,
         timestamp: new Date().toISOString()
       }),
       {
