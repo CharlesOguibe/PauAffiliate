@@ -29,55 +29,56 @@ const ReferralRedirect = () => {
   } = useQuery({
     queryKey: ["referral", code],
     queryFn: async () => {
-      console.log("=== SIMPLIFIED REFERRAL LOOKUP ===");
-      console.log("Looking for referral code:", code);
+      console.log("=== REFERRAL LOOKUP DEBUG ===");
+      console.log("Looking for code:", code);
 
       if (!code) {
         throw new Error("No referral code provided");
       }
 
       try {
-        // Step 1: Find the referral link
-        console.log("Step 1: Finding referral link...");
+        // First, let's check what's in the referral_links table
+        console.log("Step 1: Checking all referral links...");
+        const { data: allLinks, error: allLinksError } = await supabase
+          .from("referral_links")
+          .select("*");
+        
+        console.log("All referral links:", allLinks);
+        console.log("All links error:", allLinksError);
+
+        // Now try to find our specific code
+        console.log("Step 2: Looking for specific code:", code);
         const { data: referralLink, error: referralError } = await supabase
           .from("referral_links")
-          .select("*")
+          .select(`
+            *,
+            products!referral_links_product_id_fkey (
+              *,
+              business_profiles!products_business_id_fkey (
+                name,
+                verified
+              )
+            )
+          `)
           .eq("code", code)
-          .single();
+          .maybeSingle();
+
+        console.log("Referral link query result:", referralLink);
+        console.log("Referral link query error:", referralError);
 
         if (referralError) {
-          console.error("Referral link error:", referralError);
-          throw new Error("Referral code not found");
+          console.error("Database error:", referralError);
+          throw new Error(`Database error: ${referralError.message}`);
         }
 
         if (!referralLink) {
-          console.error("No referral link found");
+          console.error("No referral link found for code:", code);
           throw new Error("Referral code not found");
         }
 
         console.log("Found referral link:", referralLink);
 
-        // Step 2: Find the product
-        console.log("Step 2: Finding product for ID:", referralLink.product_id);
-        const { data: product, error: productError } = await supabase
-          .from("products")
-          .select("*")
-          .eq("id", referralLink.product_id)
-          .single();
-
-        if (productError) {
-          console.error("Product error:", productError);
-          throw new Error("Product not found");
-        }
-
-        if (!product) {
-          console.error("No product found");
-          throw new Error("Product not found");
-        }
-
-        console.log("Found product:", product);
-
-        // Step 3: Update click count
+        // Update click count
         console.log("Step 3: Updating click count...");
         const { error: updateError } = await supabase
           .from("referral_links")
@@ -86,17 +87,16 @@ const ReferralRedirect = () => {
 
         if (updateError) {
           console.error("Error updating click count:", updateError);
-          // Don't throw here, just log the error
         }
 
-        // Step 4: Store referral info in localStorage
+        // Store referral info
         localStorage.setItem("referral_code", code);
         localStorage.setItem("referral_link_id", referralLink.id);
         localStorage.setItem("affiliate_id", referralLink.affiliate_id);
 
         return {
           ...referralLink,
-          product
+          product: referralLink.products
         };
 
       } catch (err) {
