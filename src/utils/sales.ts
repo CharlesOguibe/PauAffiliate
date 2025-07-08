@@ -6,9 +6,10 @@ interface CreateSaleParams {
   amount: number;
   customerEmail?: string;
   customerName?: string;
+  deliveryAddress?: string;
 }
 
-export const createPendingSale = async ({ productId, amount, customerEmail, customerName }: CreateSaleParams) => {
+export const createPendingSale = async ({ productId, amount, customerEmail, customerName, deliveryAddress }: CreateSaleParams) => {
   console.log('Creating pending sale for product:', productId);
   
   try {
@@ -48,16 +49,18 @@ export const createPendingSale = async ({ productId, amount, customerEmail, cust
     // Generate unique transaction reference
     const txRef = `sale_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Create pending sale record
+    // Create pending sale record with proper data types
     const saleData = {
       product_id: productId,
-      amount: amount,
-      commission_amount: commissionAmount,
+      amount: Number(amount),
+      commission_amount: Number(commissionAmount),
       status: 'pending',
       customer_email: customerEmail || null,
       referral_link_id: referralLinkId,
       transaction_reference: txRef
     };
+
+    console.log('Attempting to insert sale data:', saleData);
 
     const { data: sale, error: saleError } = await supabase
       .from('sales')
@@ -66,25 +69,29 @@ export const createPendingSale = async ({ productId, amount, customerEmail, cust
       .single();
 
     if (saleError) {
-      console.error('Error creating pending sale:', saleError);
-      throw new Error('Failed to create sale record. Please try again.');
+      console.error('Detailed sale error:', saleError);
+      throw new Error(`Database error: ${saleError.message}`);
     }
 
     console.log('Pending sale created successfully:', sale);
 
     // Create pending payment transaction record
     try {
+      const transactionData = {
+        sale_id: sale.id,
+        transaction_reference: txRef,
+        amount: Number(amount),
+        currency: 'NGN',
+        customer_email: customerEmail || '',
+        customer_name: customerName || '',
+        status: 'pending'
+      };
+
+      console.log('Creating payment transaction:', transactionData);
+
       const { error: transactionError } = await supabase
         .from('payment_transactions')
-        .insert({
-          sale_id: sale.id,
-          transaction_reference: txRef,
-          amount: amount,
-          currency: 'NGN',
-          customer_email: customerEmail || '',
-          customer_name: customerName || '',
-          status: 'pending'
-        });
+        .insert(transactionData);
 
       if (transactionError) {
         console.error('Error creating payment transaction:', transactionError);
@@ -98,8 +105,8 @@ export const createPendingSale = async ({ productId, amount, customerEmail, cust
       sale,
       txRef,
       financials: {
-        amount,
-        commissionAmount
+        amount: Number(amount),
+        commissionAmount: Number(commissionAmount)
       }
     };
 

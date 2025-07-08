@@ -138,12 +138,14 @@ const ReferralRedirect = () => {
     setPaymentStep('processing');
 
     try {
+      const fullDeliveryAddress = `${customerData.deliveryAddress}, ${customerData.city}, ${customerData.state}`;
+      
       console.log('Starting payment process for:', {
         productId: referralData.product.id,
         amount: referralData.product.price,
         customerEmail: customerData.email,
         customerName: customerData.fullName,
-        deliveryAddress: `${customerData.deliveryAddress}, ${customerData.city}, ${customerData.state}`
+        deliveryAddress: fullDeliveryAddress
       });
 
       // Create pending sale
@@ -152,6 +154,7 @@ const ReferralRedirect = () => {
         amount: referralData.product.price,
         customerEmail: customerData.email,
         customerName: customerData.fullName,
+        deliveryAddress: fullDeliveryAddress
       });
 
       console.log("Pending sale created:", sale, "txRef:", txRef);
