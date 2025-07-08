@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingCart, Package, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import Button from "@/components/ui/custom/Button";
 import GlassCard from "@/components/ui/custom/GlassCard";
@@ -29,32 +29,21 @@ const ReferralRedirect = () => {
   } = useQuery({
     queryKey: ["referral", code],
     queryFn: async () => {
-      console.log("=== REFERRAL LOOKUP DEBUG ===");
-      console.log("Looking for code:", code);
+      console.log("Processing referral code:", code);
 
       if (!code) {
         throw new Error("No referral code provided");
       }
 
       try {
-        // First, let's check what's in the referral_links table
-        console.log("Step 1: Checking all referral links...");
-        const { data: allLinks, error: allLinksError } = await supabase
-          .from("referral_links")
-          .select("*");
-        
-        console.log("All referral links:", allLinks);
-        console.log("All links error:", allLinksError);
-
-        // Now try to find our specific code
-        console.log("Step 2: Looking for specific code:", code);
+        // Simple query to get referral link with product data
         const { data: referralLink, error: referralError } = await supabase
           .from("referral_links")
           .select(`
             *,
-            products!referral_links_product_id_fkey (
+            products (
               *,
-              business_profiles!products_business_id_fkey (
+              business_profiles (
                 name,
                 verified
               )
@@ -64,32 +53,30 @@ const ReferralRedirect = () => {
           .maybeSingle();
 
         console.log("Referral link query result:", referralLink);
-        console.log("Referral link query error:", referralError);
 
         if (referralError) {
           console.error("Database error:", referralError);
-          throw new Error(`Database error: ${referralError.message}`);
+          throw new Error("Failed to fetch referral data");
         }
 
-        if (!referralLink) {
+        if (!referralLink || !referralLink.products) {
           console.error("No referral link found for code:", code);
-          throw new Error("Referral code not found");
+          throw new Error("Invalid referral code");
         }
 
         console.log("Found referral link:", referralLink);
+        console.log("Found product:", referralLink.products);
 
-        // Update click count
-        console.log("Step 3: Updating click count...");
-        const { error: updateError } = await supabase
+        // Update click count (don't wait for this)
+        supabase
           .from("referral_links")
           .update({ clicks: (referralLink.clicks || 0) + 1 })
-          .eq("id", referralLink.id);
+          .eq("id", referralLink.id)
+          .then(({ error }) => {
+            if (error) console.error("Error updating click count:", error);
+          });
 
-        if (updateError) {
-          console.error("Error updating click count:", updateError);
-        }
-
-        // Store referral info
+        // Store referral info for later use
         localStorage.setItem("referral_code", code);
         localStorage.setItem("referral_link_id", referralLink.id);
         localStorage.setItem("affiliate_id", referralLink.affiliate_id);
