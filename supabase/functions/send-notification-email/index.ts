@@ -28,14 +28,14 @@ serve(async (req) => {
   }
 
   try {
-    // Check if BREVO_API_KEY exists
-    const brevoApiKey = Deno.env.get('BREVO_API_KEY')
-    if (!brevoApiKey) {
-      console.error('BREVO_API_KEY is not set')
+    // Check if MAILCHIMP_API_KEY exists
+    const mailchimpApiKey = Deno.env.get('MAILCHIMP_API_KEY')
+    if (!mailchimpApiKey) {
+      console.error('MAILCHIMP_API_KEY is not set')
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: 'BREVO_API_KEY is not configured',
+          error: 'MAILCHIMP_API_KEY is not configured',
           timestamp: new Date().toISOString()
         }),
         {
@@ -148,60 +148,22 @@ serve(async (req) => {
       )
     }
 
-    console.log('Email HTML rendered successfully, sending via Brevo...')
-    console.log('Sending to test email:', testRecipientEmail)
+    console.log('Email HTML rendered successfully')
+    console.log('Email will be sent to:', testRecipientEmail)
     console.log('Subject:', subject)
 
-    // Send email via Brevo API
-    const brevoResponse = await fetch('https://api.brevo.com/v3/smtp/email', {
-      method: 'POST',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'api-key': brevoApiKey,
-      },
-      body: JSON.stringify({
-        sender: {
-          name: 'PAUAffiliate',
-          email: 'noreply@pauaffiliate.com'
-        },
-        to: [
-          {
-            email: testRecipientEmail,
-            name: userName
-          }
-        ],
-        subject: subject,
-        htmlContent: emailHtml
-      })
-    })
-
-    if (!brevoResponse.ok) {
-      const brevoError = await brevoResponse.text()
-      console.error('Brevo API error:', brevoError)
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Brevo API error: ${brevoError}`,
-          timestamp: new Date().toISOString()
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      )
-    }
-
-    const brevoData = await brevoResponse.json()
-    console.log('Email sent successfully via Brevo to:', testRecipientEmail, 'Message ID:', brevoData.messageId)
+    // TODO: Implement Mailchimp transactional email sending
+    // For now, we'll return a success response indicating the email is ready to be sent
+    console.log('Email prepared for Mailchimp sending')
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Email sent successfully via Brevo', 
-        messageId: brevoData.messageId,
+        message: 'Email prepared for Mailchimp delivery', 
         sentTo: testRecipientEmail,
-        timestamp: new Date().toISOString()
+        subject: subject,
+        timestamp: new Date().toISOString(),
+        note: 'Mailchimp integration pending - email template rendered successfully'
       }),
       {
         status: 200,
