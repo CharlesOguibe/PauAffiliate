@@ -1,5 +1,6 @@
 
-import { supabase } from '@/integrations/supabase/client'
+import { sendEmailViaEmailJS } from './emailjs';
+import EMAILJS_CONFIG from './emailjs';
 
 interface EmailNotificationData {
   type: 'withdrawal_request' | 'withdrawal_status' | 'sale_notification' | 'general'
@@ -10,30 +11,80 @@ interface EmailNotificationData {
 
 export const sendEmailNotification = async (notificationData: EmailNotificationData) => {
   try {
-    console.log('Sending email notification:', notificationData)
+    console.log('Sending email notification via EmailJS:', notificationData);
     
     // Validate required fields
     if (!notificationData.type || !notificationData.userEmail || !notificationData.userName) {
-      console.error('Missing required notification fields')
-      return { success: false, error: 'Missing required fields' }
+      console.error('Missing required notification fields');
+      return { success: false, error: 'Missing required fields' };
     }
 
-    const { data, error } = await supabase.functions.invoke('send-notification-email', {
-      body: notificationData
-    })
+    let templateId: string;
+    let templateParams: Record<string, any>;
 
-    if (error) {
-      console.error('Error sending email notification:', error)
-      return { success: false, error: error.message || 'Failed to send email' }
+    switch (notificationData.type) {
+      case 'withdrawal_request':
+        templateId = EMAILJS_CONFIG.templates.withdrawalRequest;
+        templateParams = {
+          user_name: notificationData.userName,
+          amount: notificationData.data.amount,
+          bank_name: notificationData.data.bankName,
+          account_number: notificationData.data.accountNumber,
+          account_name: notificationData.data.accountName,
+        };
+        break;
+
+      case 'withdrawal_status':
+        templateId = EMAILJS_CONFIG.templates.withdrawalStatus;
+        templateParams = {
+          user_name: notificationData.userName,
+          amount: notificationData.data.amount,
+          status: notificationData.data.status,
+          bank_name: notificationData.data.bankName,
+          account_number: notificationData.data.accountNumber,
+          account_name: notificationData.data.accountName,
+          notes: notificationData.data.notes || '',
+        };
+        break;
+
+      case 'sale_notification':
+        templateId = EMAILJS_CONFIG.templates.saleNotification;
+        templateParams = {
+          user_name: notificationData.userName,
+          product_name: notificationData.data.productName,
+          commission_amount: notificationData.data.commissionAmount,
+          customer_email: notificationData.data.customerEmail,
+        };
+        break;
+
+      case 'general':
+        templateId = EMAILJS_CONFIG.templates.generalNotification;
+        templateParams = {
+          user_name: notificationData.userName,
+          title: notificationData.data.title,
+          message: notificationData.data.message,
+          notification_type: notificationData.data.notificationType || 'info',
+        };
+        break;
+
+      default:
+        throw new Error(`Unknown email type: ${notificationData.type}`);
     }
 
-    console.log('Email notification sent successfully:', data)
-    return { success: true, data }
+    const result = await sendEmailViaEmailJS(templateId, templateParams, notificationData.userEmail);
+    
+    if (result.success) {
+      console.log('Email notification sent successfully via EmailJS');
+      return { success: true, data: result.data };
+    } else {
+      console.error('Failed to send email via EmailJS:', result.error);
+      return { success: false, error: result.error };
+    }
   } catch (error) {
-    console.error('Error invoking email function:', error)
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
+    console.error('Error sending email notification:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
-}
+};
 
 // Helper functions for specific notification types
 export const sendWithdrawalRequestEmail = async (
@@ -46,11 +97,11 @@ export const sendWithdrawalRequestEmail = async (
     accountName: string
   }
 ) => {
-  console.log('Sending withdrawal request email to:', userEmail)
+  console.log('Sending withdrawal request email to:', userEmail);
   
   if (!userEmail || !userName || !withdrawalData.amount) {
-    console.error('Invalid withdrawal request email data')
-    return { success: false, error: 'Invalid email data' }
+    console.error('Invalid withdrawal request email data');
+    return { success: false, error: 'Invalid email data' };
   }
 
   return sendEmailNotification({
@@ -63,8 +114,8 @@ export const sendWithdrawalRequestEmail = async (
       accountNumber: String(withdrawalData.accountNumber || ''),
       accountName: String(withdrawalData.accountName || '')
     }
-  })
-}
+  });
+};
 
 export const sendWithdrawalStatusEmail = async (
   userEmail: string,
@@ -78,11 +129,11 @@ export const sendWithdrawalStatusEmail = async (
     notes?: string
   }
 ) => {
-  console.log('Sending withdrawal status email to:', userEmail)
+  console.log('Sending withdrawal status email to:', userEmail);
   
   if (!userEmail || !userName || !statusData.amount || !statusData.status) {
-    console.error('Invalid withdrawal status email data')
-    return { success: false, error: 'Invalid email data' }
+    console.error('Invalid withdrawal status email data');
+    return { success: false, error: 'Invalid email data' };
   }
 
   return sendEmailNotification({
@@ -97,8 +148,8 @@ export const sendWithdrawalStatusEmail = async (
       accountName: String(statusData.accountName || ''),
       notes: statusData.notes || undefined
     }
-  })
-}
+  });
+};
 
 export const sendSaleNotificationEmail = async (
   userEmail: string,
@@ -109,11 +160,11 @@ export const sendSaleNotificationEmail = async (
     customerEmail: string
   }
 ) => {
-  console.log('Sending sale notification email to:', userEmail)
+  console.log('Sending sale notification email to:', userEmail);
   
   if (!userEmail || !userName || !saleData.commissionAmount) {
-    console.error('Invalid sale notification email data')
-    return { success: false, error: 'Invalid email data' }
+    console.error('Invalid sale notification email data');
+    return { success: false, error: 'Invalid email data' };
   }
 
   return sendEmailNotification({
@@ -125,8 +176,8 @@ export const sendSaleNotificationEmail = async (
       commissionAmount: Number(saleData.commissionAmount),
       customerEmail: String(saleData.customerEmail || '')
     }
-  })
-}
+  });
+};
 
 export const sendGeneralNotificationEmail = async (
   userEmail: string,
@@ -137,11 +188,11 @@ export const sendGeneralNotificationEmail = async (
     notificationType?: 'info' | 'warning' | 'success' | 'error'
   }
 ) => {
-  console.log('Sending general notification email to:', userEmail)
+  console.log('Sending general notification email to:', userEmail);
   
   if (!userEmail || !userName || !notificationData.title || !notificationData.message) {
-    console.error('Invalid general notification email data')
-    return { success: false, error: 'Invalid email data' }
+    console.error('Invalid general notification email data');
+    return { success: false, error: 'Invalid email data' };
   }
 
   return sendEmailNotification({
@@ -153,5 +204,5 @@ export const sendGeneralNotificationEmail = async (
       message: String(notificationData.message),
       notificationType: notificationData.notificationType || 'info'
     }
-  })
-}
+  });
+};
