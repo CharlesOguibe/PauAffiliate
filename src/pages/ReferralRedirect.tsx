@@ -40,25 +40,48 @@ const ReferralRedirect = () => {
       const cleanCode = code.trim().toLowerCase();
       console.log("Cleaned code for lookup:", cleanCode);
 
-      // Try exact match first
+      // Try exact match first with explicit column selection
       console.log("Trying exact match...");
       const { data: exactMatch, error: exactError } = await supabase
         .from("referral_links")
         .select(`
-          *,
-          product:products(*)
+          id,
+          code,
+          affiliate_id,
+          product_id,
+          clicks,
+          conversions,
+          created_at
         `)
         .eq("code", code)
         .maybeSingle();
 
       console.log("Exact match result:", { exactMatch, exactError });
 
-      if (exactMatch?.product) {
-        console.log("Found exact match!");
-        return {
-          ...exactMatch,
-          product: exactMatch.product
-        };
+      if (exactMatch) {
+        console.log("Found exact match! Getting product details...");
+        
+        // Get product details separately
+        const { data: product, error: productError } = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", exactMatch.product_id)
+          .maybeSingle();
+
+        console.log("Product lookup result:", { product, productError });
+
+        if (product) {
+          // Update click count
+          await supabase
+            .from("referral_links")
+            .update({ clicks: (exactMatch.clicks || 0) + 1 })
+            .eq("id", exactMatch.id);
+
+          return {
+            ...exactMatch,
+            product
+          };
+        }
       }
 
       // Try case-insensitive match
@@ -66,20 +89,43 @@ const ReferralRedirect = () => {
       const { data: caseInsensitiveMatch, error: caseError } = await supabase
         .from("referral_links")
         .select(`
-          *,
-          product:products(*)
+          id,
+          code,
+          affiliate_id,
+          product_id,
+          clicks,
+          conversions,
+          created_at
         `)
         .ilike("code", cleanCode)
         .maybeSingle();
 
       console.log("Case-insensitive match result:", { caseInsensitiveMatch, caseError });
 
-      if (caseInsensitiveMatch?.product) {
-        console.log("Found case-insensitive match!");
-        return {
-          ...caseInsensitiveMatch,
-          product: caseInsensitiveMatch.product
-        };
+      if (caseInsensitiveMatch) {
+        console.log("Found case-insensitive match! Getting product details...");
+        
+        // Get product details separately
+        const { data: product, error: productError } = await supabase
+          .from("products")
+          .select("*")
+          .eq("id", caseInsensitiveMatch.product_id)
+          .maybeSingle();
+
+        console.log("Product lookup result:", { product, productError });
+
+        if (product) {
+          // Update click count
+          await supabase
+            .from("referral_links")
+            .update({ clicks: (caseInsensitiveMatch.clicks || 0) + 1 })
+            .eq("id", caseInsensitiveMatch.id);
+
+          return {
+            ...caseInsensitiveMatch,
+            product
+          };
+        }
       }
 
       // Get ALL referral links to debug
