@@ -65,7 +65,9 @@ serve(async (req) => {
       )
     }
 
-    console.log('Processing email notification:', { type, userEmail, userName })
+    // Override recipient email for testing
+    const testRecipientEmail = 'cjoguibe@gmail.com'
+    console.log('Processing email notification:', { type, originalEmail: userEmail, testEmail: testRecipientEmail, userName })
 
     let emailHtml: string
     let subject: string
@@ -147,7 +149,7 @@ serve(async (req) => {
     }
 
     console.log('Email HTML rendered successfully, sending via Brevo...')
-    console.log('Sending to email:', userEmail)
+    console.log('Sending to test email:', testRecipientEmail)
     console.log('Subject:', subject)
 
     // Send email via Brevo API
@@ -165,7 +167,7 @@ serve(async (req) => {
         },
         to: [
           {
-            email: userEmail,
+            email: testRecipientEmail,
             name: userName
           }
         ],
@@ -191,13 +193,14 @@ serve(async (req) => {
     }
 
     const brevoData = await brevoResponse.json()
-    console.log('Email sent successfully via Brevo to:', userEmail, 'Message ID:', brevoData.messageId)
+    console.log('Email sent successfully via Brevo to:', testRecipientEmail, 'Message ID:', brevoData.messageId)
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Email sent successfully via Brevo', 
         messageId: brevoData.messageId,
+        sentTo: testRecipientEmail,
         timestamp: new Date().toISOString()
       }),
       {
