@@ -36,13 +36,10 @@ const ReferralRedirect = () => {
         throw new Error("No referral code provided");
       }
 
-      // Try exact match first
+      // First, get the referral link
       const { data: referralLink, error: linkError } = await supabase
         .from("referral_links")
-        .select(`
-          *,
-          product:products(*)
-        `)
+        .select("*")
         .eq("code", code)
         .maybeSingle();
 
@@ -57,7 +54,21 @@ const ReferralRedirect = () => {
         throw new Error("Referral code not found");
       }
 
-      if (!referralLink.product) {
+      // Then, get the product separately
+      const { data: product, error: productError } = await supabase
+        .from("products")
+        .select("*")
+        .eq("id", referralLink.product_id)
+        .maybeSingle();
+
+      console.log("Product query result:", product, productError);
+
+      if (productError) {
+        console.error("Product database error:", productError);
+        throw new Error(`Product database error: ${productError.message}`);
+      }
+
+      if (!product) {
         throw new Error("Product not found or no longer available");
       }
 
@@ -80,7 +91,11 @@ const ReferralRedirect = () => {
       localStorage.setItem("referral_link_id", referralLink.id);
       localStorage.setItem("affiliate_id", referralLink.affiliate_id);
 
-      return referralLink;
+      // Return combined data
+      return {
+        ...referralLink,
+        product
+      };
     },
     enabled: !!code,
     retry: false,
