@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -59,6 +60,8 @@ const ReferralRedirect = () => {
         throw new Error(`Database error: ${linkError.message}`);
       }
 
+      let finalReferralLink = referralLink;
+
       if (!referralLink) {
         // Try exact match as fallback
         const { data: exactMatch, error: exactError } = await supabase
@@ -74,14 +77,14 @@ const ReferralRedirect = () => {
         }
         
         // Use exact match if found
-        const referralLink = exactMatch;
+        finalReferralLink = exactMatch;
       }
 
       // Get the product separately
       const { data: product, error: productError } = await supabase
         .from("products")
         .select("*")
-        .eq("id", referralLink.product_id)
+        .eq("id", finalReferralLink.product_id)
         .maybeSingle();
 
       console.log("Product query result:", product, productError);
@@ -99,8 +102,8 @@ const ReferralRedirect = () => {
       try {
         const { error: updateError } = await supabase
           .from("referral_links")
-          .update({ clicks: (referralLink.clicks || 0) + 1 })
-          .eq("id", referralLink.id);
+          .update({ clicks: (finalReferralLink.clicks || 0) + 1 })
+          .eq("id", finalReferralLink.id);
 
         if (updateError) {
           console.log("Could not update clicks:", updateError);
@@ -111,18 +114,18 @@ const ReferralRedirect = () => {
 
       // Store referral info in localStorage
       localStorage.setItem("referral_code", code);
-      localStorage.setItem("referral_link_id", referralLink.id);
-      localStorage.setItem("affiliate_id", referralLink.affiliate_id);
+      localStorage.setItem("referral_link_id", finalReferralLink.id);
+      localStorage.setItem("affiliate_id", finalReferralLink.affiliate_id);
 
       console.log("Successfully found referral link and product:", {
-        referralId: referralLink.id,
+        referralId: finalReferralLink.id,
         productId: product.id,
         productName: product.name
       });
 
       // Return combined data
       return {
-        ...referralLink,
+        ...finalReferralLink,
         product
       };
     },
