@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -23,6 +24,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import EarningsOverview from '@/components/earnings/EarningsOverview';
 import TransactionHistory from '@/components/earnings/TransactionHistory';
+import NotificationBell from '@/components/notifications/NotificationBell';
 import WithdrawalRequest from '@/components/withdrawals/WithdrawalRequest';
 import WithdrawalHistory from '@/components/withdrawals/WithdrawalHistory';
 import AdminPanel from '@/components/admin/AdminPanel';

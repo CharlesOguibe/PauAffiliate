@@ -1,79 +1,66 @@
 
 import React from 'react';
-import { Shield, LogOut } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, LogOut, Shield } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
 import NotificationBell from '@/components/notifications/NotificationBell';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role?: string;
-}
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'sale' | 'commission' | 'withdrawal' | 'info';
-  read: boolean;
-  createdAt: Date;
-}
+import { DashboardNotification } from '@/types/dashboard';
 
 interface DashboardHeaderProps {
-  user: User | null;
-  notifications: Notification[];
+  user: {
+    email?: string;
+    name?: string;
+    role?: string;
+  };
+  notifications: DashboardNotification[];
   onMarkNotificationAsRead: (id: string) => void;
   onClearNotifications: () => void;
   onLogout: () => void;
 }
 
-const DashboardHeader = ({ 
-  user, 
-  notifications, 
-  onMarkNotificationAsRead, 
-  onClearNotifications, 
-  onLogout 
+const DashboardHeader = ({
+  user,
+  notifications,
+  onMarkNotificationAsRead,
+  onClearNotifications,
+  onLogout
 }: DashboardHeaderProps) => {
   const isAdminUser = user?.role === 'admin';
 
   return (
-    <header className="bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border sticky top-0 z-50">
-      <div className="container mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-2xl font-bold text-foreground">Affiliate Bridge</h1>
+    <header className="glass shadow-sm px-6 py-4 sticky top-0 z-10">
+      <div className="container mx-auto flex justify-between items-center">
+        <Link to="/" className="text-xl font-semibold tracking-tight">
+          <span className="text-primary">PAU</span>Affiliate
+        </Link>
+        
+        <div className="flex items-center space-x-6">
+          <NotificationBell 
+            notifications={notifications}
+            onMarkAsRead={onMarkNotificationAsRead}
+            onClearAll={onClearNotifications}
+          />
+          
+          <Link to="/">
+            <Button variant="ghost" size="sm" className="px-4">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Home
+            </Button>
+          </Link>
+          
+          <div className="flex items-center space-x-3">
+            <span className="text-sm text-muted-foreground px-3 py-1 bg-secondary/20 rounded-md">
+              {user?.email}
+            </span>
             {isAdminUser && (
-              <div className="flex items-center space-x-2 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1 rounded-full">
-                <Shield className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
-                <span className="text-sm font-medium text-yellow-700 dark:text-yellow-300">Admin</span>
-              </div>
+              <Shield className="h-5 w-5 text-yellow-500" />
             )}
           </div>
           
-          <div className="flex items-center space-x-4">
-            <NotificationBell
-              notifications={notifications}
-              onMarkAsRead={onMarkNotificationAsRead}
-              onClearAll={onClearNotifications}
-            />
-            
-            <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <p className="text-sm font-medium text-foreground">{user?.name}</p>
-                <p className="text-xs text-muted-foreground">{user?.email}</p>
-              </div>
-              
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onLogout}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                <LogOut className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <Button variant="ghost" size="sm" onClick={onLogout} className="px-4">
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
         </div>
       </div>
     </header>
