@@ -82,3 +82,33 @@ export const sendWithdrawalRequestEmail = async (
     }
   });
 };
+
+// Placeholder functions for backward compatibility
+export const sendGeneralNotificationEmail = async (
+  userEmail: string,
+  userName: string,
+  notificationData: {
+    title: string
+    message: string
+    notificationType: string
+  }
+) => {
+  console.log('General notification email not implemented via EmailJS - using withdrawal template only');
+  return { success: false, error: 'General notifications not supported via EmailJS' };
+};
+
+export const sendWithdrawalStatusEmail = async (
+  userEmail: string,
+  userName: string,
+  statusData: {
+    amount: number
+    status: string
+    bankName: string
+    accountNumber: string
+    accountName: string
+    notes?: string
+  }
+) => {
+  console.log('Withdrawal status email not implemented via EmailJS - using withdrawal template only');
+  return { success: false, error: 'Withdrawal status emails not supported via EmailJS' };
+};

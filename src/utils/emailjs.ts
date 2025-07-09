@@ -3,7 +3,7 @@ import emailjs from '@emailjs/browser';
 
 // Initialize EmailJS with your public key
 export const initializeEmailJS = () => {
-  emailjs.init("YOUR_PUBLIC_KEY"); // Replace with your actual public key
+  emailjs.init("6Fm0hJrxDmsYM7Umi");
 };
 
 export const sendEmailViaEmailJS = async (
@@ -15,7 +15,7 @@ export const sendEmailViaEmailJS = async (
     console.log('Sending email via EmailJS:', { templateId, userEmail, templateParams });
     
     const response = await emailjs.send(
-      'YOUR_SERVICE_ID', // Replace with your service ID
+      'service_ryi5qwb',
       templateId,
       {
         ...templateParams,
@@ -34,10 +34,10 @@ export const sendEmailViaEmailJS = async (
 };
 
 const EMAILJS_CONFIG = {
-  publicKey: 'YOUR_PUBLIC_KEY', // Replace with your actual public key
-  serviceId: 'YOUR_SERVICE_ID', // Replace with your actual service ID
+  publicKey: '6Fm0hJrxDmsYM7Umi',
+  serviceId: 'service_ryi5qwb',
   templates: {
-    withdrawalRequest: 'template_withdrawal_request'
+    withdrawalRequest: 'template_bu5ya5t'
   }
 };
 
