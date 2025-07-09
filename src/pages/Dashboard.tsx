@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -191,7 +190,7 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center space-x-4">
-              {isAffiliateUser && <TestFundsButton />}
+              {(isAffiliateUser || isBusinessUser) && <TestFundsButton />}
             </div>
           </div>
         </div>
