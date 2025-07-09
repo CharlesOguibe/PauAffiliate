@@ -35,13 +35,11 @@ const DashboardHeader = ({
         </Link>
         
         <div className="flex items-center space-x-6">
-          <div role="region" aria-label="Notifications">
-            <NotificationBell 
-              notifications={notifications}
-              onMarkAsRead={onMarkNotificationAsRead}
-              onClearAll={onClearNotifications}
-            />
-          </div>
+          <NotificationBell 
+            notifications={notifications}
+            onMarkAsRead={onMarkNotificationAsRead}
+            onClearAll={onClearNotifications}
+          />
           
           <Link to="/">
             <Button variant="ghost" size="sm" className="px-4">
@@ -55,7 +53,7 @@ const DashboardHeader = ({
               {user?.email}
             </span>
             {isAdminUser && (
-              <Shield className="h-5 w-5 text-yellow-500" aria-label="Admin user" />
+              <Shield className="h-5 w-5 text-yellow-500" />
             )}
           </div>
           
