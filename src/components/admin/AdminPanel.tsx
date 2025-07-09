@@ -45,23 +45,42 @@ const AdminPanel = () => {
 
   const fetchBusinesses = async () => {
     try {
-      // Get business profiles and their associated user profiles to filter out admin users
+      // Get all business profiles first
       const { data: businessData, error: businessError } = await supabase
         .from('business_profiles')
-        .select(`
-          *,
-          profiles:id (
-            role
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (businessError) throw businessError;
 
+      if (!businessData) {
+        setBusinesses([]);
+        return;
+      }
+
+      // Get user IDs from business profiles
+      const userIds = businessData.map(business => business.id);
+      
+      // Check which users are admin users
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, role')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        setBusinesses(businessData); // fallback to all businesses
+        return;
+      }
+
       // Filter out admin users from business profiles
-      const filteredBusinesses = businessData?.filter(business => 
-        business.profiles?.role !== 'admin'
-      ) || [];
+      const adminUserIds = new Set(
+        profilesData?.filter(profile => profile.role === 'admin').map(p => p.id) || []
+      );
+
+      const filteredBusinesses = businessData.filter(business => 
+        !adminUserIds.has(business.id)
+      );
 
       setBusinesses(filteredBusinesses);
     } catch (error) {
