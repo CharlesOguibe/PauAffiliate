@@ -37,10 +37,7 @@ const EMAILJS_CONFIG = {
   publicKey: 'YOUR_PUBLIC_KEY', // Replace with your actual public key
   serviceId: 'YOUR_SERVICE_ID', // Replace with your actual service ID
   templates: {
-    withdrawalRequest: 'template_withdrawal_request',
-    withdrawalStatus: 'template_withdrawal_status',
-    saleNotification: 'template_sale_notification',
-    generalNotification: 'template_general_notification',
+    withdrawalRequest: 'template_withdrawal_request'
   }
 };
 

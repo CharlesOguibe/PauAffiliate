@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -31,7 +32,6 @@ import ProductList from '@/components/products/ProductList';
 import ReferralLinksTable from '@/components/dashboard/ReferralLinksTable';
 import BusinessMetrics from '@/components/dashboard/BusinessMetrics';
 import TestFundsButton from '@/components/admin/TestFundsButton';
-import TestEmailButton from '@/components/dashboard/TestEmailButton';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 
 const Dashboard = () => {
@@ -152,12 +152,6 @@ const Dashboard = () => {
             
             <div className="flex items-center space-x-4">
               {isAffiliateUser && <TestFundsButton />}
-              {user && (
-                <TestEmailButton 
-                  userEmail={user.email} 
-                  userName={user.name || 'User'} 
-                />
-              )}
             </div>
           </div>
         </div>
