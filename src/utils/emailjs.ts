@@ -17,7 +17,7 @@ export const sendEmailViaEmailJS = async (
     console.log('Sending email via EmailJS:', { templateId, userEmail, templateParams });
     
     const response = await emailjs.send(
-      'service_ryi5qwb',
+      'service_zvna17d',
       templateId,
       {
         ...templateParams,
@@ -42,7 +42,7 @@ export const sendEmailViaEmailJS = async (
 
 const EMAILJS_CONFIG = {
   publicKey: '6Fm0hJrxDmsYM7Umi',
-  serviceId: 'service_ryi5qwb',
+  serviceId: 'service_zvna17d',
   templates: {
     withdrawalRequest: 'template_bu5ya5t'
   }
