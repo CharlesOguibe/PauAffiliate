@@ -23,6 +23,10 @@ const sendElasticEmail = async (to: string, subject: string, htmlBody: string, t
     if (textBody) {
       formData.append('bodyText', textBody);
     }
+    
+    // Add headers to improve deliverability
+    formData.append('replyTo', 'support@pauaffiliate.com');
+    formData.append('priority', '3'); // Normal priority (1=high, 3=normal, 5=low)
 
     const response = await fetch(ELASTIC_EMAIL_API_URL, {
       method: 'POST',
@@ -75,70 +79,105 @@ export const sendWithdrawalRequestEmail = async (
     withdrawalData
   });
 
-  const subject = 'New Withdrawal Request - Action Required';
+  const subject = 'PAU Affiliate: New Withdrawal Request Requires Review';
   
   const htmlBody = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-      <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="color: #333; margin-bottom: 20px;">New Withdrawal Request</h2>
-        
-        <p style="color: #666; margin-bottom: 20px;">A new withdrawal request has been submitted and requires your attention.</p>
-        
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-          <h3 style="color: #333; margin-top: 0;">Request Details:</h3>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px 0; color: #666; font-weight: bold;">Affiliate:</td>
-              <td style="padding: 8px 0; color: #333;">${userName} (${userEmail})</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #666; font-weight: bold;">Amount:</td>
-              <td style="padding: 8px 0; color: #333;">₦${withdrawalData.amount.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #666; font-weight: bold;">Bank Name:</td>
-              <td style="padding: 8px 0; color: #333;">${withdrawalData.bankName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #666; font-weight: bold;">Account Number:</td>
-              <td style="padding: 8px 0; color: #333;">${withdrawalData.accountNumber}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 0; color: #666; font-weight: bold;">Account Name:</td>
-              <td style="padding: 8px 0; color: #333;">${withdrawalData.accountName}</td>
-            </tr>
-          </table>
-        </div>
-        
-        <div style="background-color: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 6px; margin: 20px 0;">
-          <p style="margin: 0; color: #856404;">
-            <strong>Action Required:</strong> Please review and process this withdrawal request in the admin panel.
-          </p>
-        </div>
-        
-        <p style="color: #666; margin-top: 30px;">
-          Best regards,<br>
-          PAU Affiliate System
-        </p>
-      </div>
-    </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Withdrawal Request</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f8f9fa;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; padding: 20px 0;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 0 auto;">
+              <tr>
+                <td style="padding: 40px 30px;">
+                  <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 600;">PAU Affiliate System</h1>
+                    <p style="color: #6b7280; margin: 5px 0 0 0; font-size: 14px;">Payment Processing Notification</p>
+                  </div>
+                  
+                  <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">New Withdrawal Request</h2>
+                  
+                  <p style="color: #4b5563; margin: 0 0 25px 0; font-size: 16px;">A withdrawal request has been submitted by an affiliate and requires your immediate attention for processing.</p>
+                  
+                  <table width="100%" cellpadding="12" cellspacing="0" style="background-color: #f9fafb; border-radius: 6px; margin: 25px 0; border: 1px solid #e5e7eb;">
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; width: 30%;">Affiliate Name:</td>
+                      <td style="color: #1f2937;">${userName}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Email Address:</td>
+                      <td style="color: #1f2937; padding-top: 12px;">${userEmail}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Withdrawal Amount:</td>
+                      <td style="color: #059669; font-weight: 600; font-size: 18px; padding-top: 12px;">₦${withdrawalData.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Bank Name:</td>
+                      <td style="color: #1f2937; padding-top: 12px;">${withdrawalData.bankName}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Account Number:</td>
+                      <td style="color: #1f2937; font-family: monospace; padding-top: 12px;">${withdrawalData.accountNumber}</td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Account Name:</td>
+                      <td style="color: #1f2937; padding-top: 12px;">${withdrawalData.accountName}</td>
+                    </tr>
+                  </table>
+                  
+                  <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 16px; margin: 25px 0; border-radius: 4px;">
+                    <p style="margin: 0; color: #92400e; font-weight: 500;">
+                      <strong>Action Required:</strong> Please log into the admin panel to review and process this withdrawal request promptly.
+                    </p>
+                  </div>
+                  
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="#" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 500; display: inline-block;">Review in Admin Panel</a>
+                  </div>
+                  
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+                  
+                  <p style="color: #6b7280; margin: 0; font-size: 14px; text-align: center;">
+                    This is an automated notification from PAU Affiliate System.<br>
+                    Please do not reply to this email.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 
   const textBody = `
-New Withdrawal Request
+PAU AFFILIATE SYSTEM - WITHDRAWAL REQUEST
 
-A new withdrawal request has been submitted:
+A new withdrawal request requires your attention:
 
-Affiliate: ${userName} (${userEmail})
-Amount: ₦${withdrawalData.amount.toFixed(2)}
-Bank Name: ${withdrawalData.bankName}
+AFFILIATE DETAILS:
+Name: ${userName}
+Email: ${userEmail}
+
+WITHDRAWAL DETAILS:
+Amount: ₦${withdrawalData.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+Bank: ${withdrawalData.bankName}
 Account Number: ${withdrawalData.accountNumber}
 Account Name: ${withdrawalData.accountName}
 
-Please review and process this request in the admin panel.
+ACTION REQUIRED: Please log into the admin panel to review and process this withdrawal request.
 
-Best regards,
+---
 PAU Affiliate System
+This is an automated notification. Please do not reply to this email.
   `;
 
   // Send to admin email
@@ -149,55 +188,92 @@ PAU Affiliate System
     textBody
   );
 
-  // Also send confirmation to user
-  const userSubject = 'Withdrawal Request Submitted';
+  // Also send confirmation to user with improved formatting
+  const userSubject = 'PAU Affiliate: Your Withdrawal Request Has Been Submitted';
   const userHtmlBody = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
-      <div style="background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <h2 style="color: #333; margin-bottom: 20px;">Withdrawal Request Submitted</h2>
-        
-        <p style="color: #666;">Hello ${userName},</p>
-        
-        <p style="color: #666; margin-bottom: 20px;">Your withdrawal request has been submitted successfully and is being processed.</p>
-        
-        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 6px; margin: 20px 0;">
-          <h3 style="color: #333; margin-top: 0;">Request Details:</h3>
-          <p style="margin: 5px 0; color: #333;"><strong>Amount:</strong> ₦${withdrawalData.amount.toFixed(2)}</p>
-          <p style="margin: 5px 0; color: #333;"><strong>Bank Name:</strong> ${withdrawalData.bankName}</p>
-          <p style="margin: 5px 0; color: #333;"><strong>Account Number:</strong> ${withdrawalData.accountNumber}</p>
-          <p style="margin: 5px 0; color: #333;"><strong>Account Name:</strong> ${withdrawalData.accountName}</p>
-        </div>
-        
-        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 6px; margin: 20px 0;">
-          <p style="margin: 0; color: #155724;">
-            <strong>Processing Time:</strong> Withdrawals are typically processed within 24-48 hours. You'll receive email notifications about status updates.
-          </p>
-        </div>
-        
-        <p style="color: #666; margin-top: 30px;">
-          Best regards,<br>
-          PAU Affiliate Team
-        </p>
-      </div>
-    </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Withdrawal Request Confirmation</title>
+    </head>
+    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #333333; background-color: #f8f9fa;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; padding: 20px 0;">
+        <tr>
+          <td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin: 0 auto;">
+              <tr>
+                <td style="padding: 40px 30px;">
+                  <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #2563eb; margin: 0; font-size: 24px; font-weight: 600;">PAU Affiliate System</h1>
+                  </div>
+                  
+                  <h2 style="color: #1f2937; margin: 0 0 20px 0; font-size: 20px; font-weight: 600;">Withdrawal Request Submitted Successfully</h2>
+                  
+                  <p style="color: #4b5563; margin: 0 0 25px 0; font-size: 16px;">Hello ${userName},</p>
+                  
+                  <p style="color: #4b5563; margin: 0 0 25px 0; font-size: 16px;">Your withdrawal request has been submitted successfully and is currently being reviewed by our team.</p>
+                  
+                  <table width="100%" cellpadding="12" cellspacing="0" style="background-color: #f9fafb; border-radius: 6px; margin: 25px 0; border: 1px solid #e5e7eb;">
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; width: 30%;">Amount Requested:</td>
+                      <td style="color: #059669; font-weight: 600; font-size: 18px;">₦${withdrawalData.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Bank Name:</td>
+                      <td style="color: #1f2937; padding-top: 12px;">${withdrawalData.bankName}</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e5e7eb;">
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Account Number:</td>
+                      <td style="color: #1f2937; font-family: monospace; padding-top: 12px;">${withdrawalData.accountNumber}</td>
+                    </tr>
+                    <tr>
+                      <td style="font-weight: 600; color: #374151; padding-top: 12px;">Account Name:</td>
+                      <td style="color: #1f2937; padding-top: 12px;">${withdrawalData.accountName}</td>
+                    </tr>
+                  </table>
+                  
+                  <div style="background-color: #d1fae5; border-left: 4px solid #10b981; padding: 16px; margin: 25px 0; border-radius: 4px;">
+                    <p style="margin: 0; color: #065f46; font-weight: 500;">
+                      <strong>Processing Timeline:</strong> Withdrawals are typically processed within 24-48 business hours. You'll receive email notifications about any status updates.
+                    </p>
+                  </div>
+                  
+                  <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
+                  
+                  <p style="color: #6b7280; margin: 0; font-size: 14px; text-align: center;">
+                    Thank you for being part of PAU Affiliate System.<br>
+                    If you have any questions, please contact our support team.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
   `;
 
   const userTextBody = `
-Withdrawal Request Submitted
+PAU AFFILIATE SYSTEM - WITHDRAWAL REQUEST CONFIRMATION
 
 Hello ${userName},
 
-Your withdrawal request has been submitted successfully and is being processed.
+Your withdrawal request has been submitted successfully and is being reviewed.
 
-Request Details:
-Amount: ₦${withdrawalData.amount.toFixed(2)}
-Bank Name: ${withdrawalData.bankName}
+REQUEST DETAILS:
+Amount: ₦${withdrawalData.amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}
+Bank: ${withdrawalData.bankName}
 Account Number: ${withdrawalData.accountNumber}
 Account Name: ${withdrawalData.accountName}
 
-Processing Time: Withdrawals are typically processed within 24-48 hours. You'll receive email notifications about status updates.
+PROCESSING TIMELINE: Withdrawals are typically processed within 24-48 business hours. You'll receive email notifications about status updates.
 
-Best regards,
+Thank you for being part of PAU Affiliate System.
+
+---
 PAU Affiliate Team
   `;
 
