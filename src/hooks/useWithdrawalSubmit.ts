@@ -1,8 +1,7 @@
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { sendWithdrawalRequestEmail, sendGeneralNotificationEmail } from '@/utils/emailNotifications';
-import { notifyAdminsOfWithdrawalRequest } from '@/utils/adminNotifications';
+import { supabase } from '@/integrations/supabase/client';
 import { BankDetails } from '@/components/withdrawals/types';
 
 export const useWithdrawalSubmit = () => {
@@ -56,80 +55,57 @@ export const useWithdrawalSubmit = () => {
     }
 
     try {
-      console.log('🔄 Starting notification process for withdrawal request:', {
+      console.log('🔄 Creating notifications for withdrawal request:', {
         userEmail: user.email,
         userName: user.name,
         amount,
         bankDetails
       });
 
-      // Send email notification to user
-      console.log('📧 Sending withdrawal request email to user:', user.email);
-      const userEmailResult = await sendWithdrawalRequestEmail(user.email, user.name, {
-        amount,
-        bankName: bankDetails.bankName,
-        accountNumber: bankDetails.accountNumber,
-        accountName: bankDetails.accountName
+      // Create notification for user
+      await supabase.rpc('create_notification', {
+        target_user_id: user.id,
+        notification_title: 'Withdrawal Request Submitted',
+        notification_message: `Your withdrawal request for ₦${amount.toFixed(2)} has been submitted and is under review. Bank: ${bankDetails.bankName}, Account: ${bankDetails.accountNumber} (${bankDetails.accountName})`,
+        notification_type: 'withdrawal'
       });
-      
-      console.log('📧 User email result:', userEmailResult);
-      
-      if (userEmailResult.success) {
-        console.log('✅ User notification email sent successfully');
-      } else {
-        console.error('❌ Failed to send user notification email:', userEmailResult.error);
+
+      // Get all admin users and create notifications for them
+      const { data: adminUsers, error } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin');
+
+      if (error) {
+        console.error('Error fetching admin users:', error);
+      } else if (adminUsers && adminUsers.length > 0) {
+        // Create notifications for each admin
+        const adminNotificationPromises = adminUsers.map(admin => 
+          supabase.rpc('create_notification', {
+            target_user_id: admin.id,
+            notification_title: 'New Withdrawal Request - Action Required',
+            notification_message: `${user.name} (${user.email}) has submitted a withdrawal request for ₦${amount.toFixed(2)}. Bank: ${bankDetails.bankName}, Account: ${bankDetails.accountNumber} (${bankDetails.accountName}). Please review in the admin panel.`,
+            notification_type: 'withdrawal'
+          })
+        );
+
+        await Promise.all(adminNotificationPromises);
+        console.log(`✅ Created notifications for ${adminUsers.length} admin users`);
       }
 
-      // Send copy to monitoring email
-      console.log('📧 Sending copy to monitoring email: cjoguibe@gmail.com');
-      const monitoringEmailResult = await sendWithdrawalRequestEmail('cjoguibe@gmail.com', 'Admin (Copy)', {
-        amount,
-        bankName: bankDetails.bankName,
-        accountNumber: bankDetails.accountNumber,
-        accountName: bankDetails.accountName
-      });
-      
-      console.log('📧 Monitoring email result:', monitoringEmailResult);
-      
-      if (monitoringEmailResult.success) {
-        console.log('✅ Monitoring email sent successfully');
-      } else {
-        console.error('❌ Failed to send monitoring email:', monitoringEmailResult.error);
-      }
-
-      // Send general notification to user
-      console.log('📧 Sending general notification to user:', user.email);
-      const generalNotificationResult = await sendGeneralNotificationEmail(user.email, user.name, {
-        title: 'Withdrawal Request Submitted',
-        message: `Your withdrawal request for ₦${amount.toFixed(2)} has been submitted and is under review. You will be notified once it's processed.`,
-        notificationType: 'info'
-      });
-      
-      console.log('📧 General notification result:', generalNotificationResult);
-      
-      if (generalNotificationResult.success) {
-        console.log('✅ General notification sent successfully');
-      } else {
-        console.error('❌ Failed to send general notification:', generalNotificationResult.error);
-      }
-
-      // Notify admin users
-      console.log('📧 Notifying admin users...');
-      await notifyAdminsOfWithdrawalRequest(amount, user.email, bankDetails);
-      
-      console.log('✅ All notification processes completed');
+      console.log('✅ All notifications created successfully');
       
       // Show success message to user
       toast({
-        title: "Notifications Sent",
-        description: "Email notifications have been sent. Please check your email and spam folder.",
+        title: "Request Submitted",
+        description: "Your withdrawal request has been submitted. Check your notifications for updates.",
       });
       
     } catch (error) {
-      console.error('❌ Error sending notifications:', error);
+      console.error('❌ Error creating notifications:', error);
       toast({
         title: "Notification Error",
-        description: "There was an error sending email notifications. Please contact support.",
+        description: "There was an error creating notifications. Please contact support.",
         variant: "destructive",
       });
     }

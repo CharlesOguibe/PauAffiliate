@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { BusinessProfile, WithdrawalRequest } from '@/types/dashboard';
-import { sendWithdrawalRequestEmail, sendGeneralNotificationEmail } from '@/utils/emailNotifications';
 import {
   Table,
   TableBody,
@@ -179,37 +178,11 @@ const AdminPanel = () => {
 
       if (error) throw error;
 
-      // Type cast the response (cast to unknown first as suggested by TypeScript)
+      // Type cast the response
       const response = data as unknown as DatabaseFunctionResponse;
 
       if (!response.success) {
         throw new Error(response.error);
-      }
-
-      // Send email notification
-      const request = pendingWithdrawals.find(req => req.id === requestId);
-      if (request && request.profiles.email !== 'No Email Available') {
-        if (approve) {
-          await sendGeneralNotificationEmail(
-            request.profiles.email,
-            'Affiliate',
-            {
-              title: 'Withdrawal Approved',
-              message: `Your withdrawal request for ₦${request.amount.toFixed(2)} has been approved and is being processed.`,
-              notificationType: 'success'
-            }
-          );
-        } else {
-          await sendGeneralNotificationEmail(
-            request.profiles.email,
-            'Affiliate',
-            {
-              title: 'Withdrawal Rejected',
-              message: `Your withdrawal request for ₦${request.amount.toFixed(2)} has been rejected. ${notes ? 'Reason: ' + notes : ''}`,
-              notificationType: 'error'
-            }
-          );
-        }
       }
 
       toast({
@@ -251,25 +224,11 @@ const AdminPanel = () => {
 
       if (error) throw error;
 
-      // Type cast the response (cast to unknown first as suggested by TypeScript)
+      // Type cast the response
       const response = data as unknown as DatabaseFunctionResponse;
 
       if (!response.success) {
         throw new Error(response.error);
-      }
-
-      // Send email notification
-      const request = approvedWithdrawals.find(req => req.id === requestId);
-      if (request && request.profiles.email !== 'No Email Available') {
-        await sendGeneralNotificationEmail(
-          request.profiles.email,
-          'Affiliate',
-          {
-            title: 'Withdrawal Completed',
-            message: `Your withdrawal of ₦${request.amount.toFixed(2)} has been completed and sent to your bank account.`,
-            notificationType: 'success'
-          }
-        );
       }
 
       toast({
