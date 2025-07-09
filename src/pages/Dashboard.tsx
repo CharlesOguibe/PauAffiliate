@@ -52,6 +52,31 @@ const Dashboard = () => {
   } = useDashboardData(user?.id, isAffiliateUser || isBusinessUser);
 
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
+  const [productsCount, setProductsCount] = useState(0);
+
+  // Fetch products count for business users
+  useEffect(() => {
+    const fetchProductsCount = async () => {
+      if (isBusinessUser && user?.id) {
+        try {
+          const { count, error } = await supabase
+            .from('products')
+            .select('*', { count: 'exact', head: true })
+            .eq('business_id', user.id);
+
+          if (error) {
+            console.error('Error fetching products count:', error);
+          } else {
+            setProductsCount(count || 0);
+          }
+        } catch (error) {
+          console.error('Error fetching products count:', error);
+        }
+      }
+    };
+
+    fetchProductsCount();
+  }, [isBusinessUser, user?.id]);
 
   const copyToClipboard = (code: string, id: string) => {
     const referralLink = `${window.location.origin}/ref/${code}`;
@@ -181,7 +206,12 @@ const Dashboard = () => {
 
         {isBusinessUser && (
           <>
-            <BusinessMetrics referralLinks={referralLinks} isAffiliateUser={false} />
+            <BusinessMetrics 
+              referralLinks={referralLinks} 
+              isAffiliateUser={false}
+              totalEarnings={earnings.total}
+              productsCount={productsCount}
+            />
 
             <div className="mb-8">
               <ProductList limit={5} />
@@ -206,7 +236,12 @@ const Dashboard = () => {
 
         {isAffiliateUser && (
           <>
-            <BusinessMetrics referralLinks={referralLinks} isAffiliateUser={true} />
+            <BusinessMetrics 
+              referralLinks={referralLinks} 
+              isAffiliateUser={true}
+              totalEarnings={earnings.total}
+              productsCount={0}
+            />
             
             <ReferralLinksTable 
               referralLinks={referralLinks}

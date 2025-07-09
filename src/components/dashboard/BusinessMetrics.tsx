@@ -7,9 +7,21 @@ import { ReferralLink } from '@/types';
 interface BusinessMetricsProps {
   referralLinks: Array<ReferralLink & { product: { name: string; price: number; commissionRate: number } }>;
   isAffiliateUser: boolean;
+  totalEarnings?: number;
+  productsCount?: number;
 }
 
-const BusinessMetrics = ({ referralLinks, isAffiliateUser }: BusinessMetricsProps) => {
+const BusinessMetrics = ({ 
+  referralLinks, 
+  isAffiliateUser, 
+  totalEarnings = 0,
+  productsCount = 0
+}: BusinessMetricsProps) => {
+  // For affiliate users, show products they're promoting and their referral links
+  // For business users, show their products and total referrals to their products
+  const productsMetric = isAffiliateUser ? referralLinks.length : productsCount;
+  const linksMetric = isAffiliateUser ? referralLinks.length : referralLinks.length;
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
       <GlassCard hover>
@@ -22,7 +34,7 @@ const BusinessMetrics = ({ referralLinks, isAffiliateUser }: BusinessMetricsProp
               {isAffiliateUser ? 'Products Promoting' : 'Your Products'}
             </div>
             <div className="text-2xl font-bold">
-              {isAffiliateUser ? referralLinks.length : '0'}
+              {productsMetric}
             </div>
           </div>
         </div>
@@ -38,7 +50,7 @@ const BusinessMetrics = ({ referralLinks, isAffiliateUser }: BusinessMetricsProp
               {isAffiliateUser ? 'Referral Links' : 'Total Referrals'}
             </div>
             <div className="text-2xl font-bold">
-              {isAffiliateUser ? referralLinks.length : '0'}
+              {linksMetric}
             </div>
           </div>
         </div>
@@ -53,7 +65,7 @@ const BusinessMetrics = ({ referralLinks, isAffiliateUser }: BusinessMetricsProp
             <div className="text-sm font-medium text-muted-foreground">
               {isAffiliateUser ? 'Earnings' : 'Total Sales'}
             </div>
-            <div className="text-2xl font-bold">₦0.00</div>
+            <div className="text-2xl font-bold">₦{totalEarnings.toFixed(2)}</div>
           </div>
         </div>
       </GlassCard>
