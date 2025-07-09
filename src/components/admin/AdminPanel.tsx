@@ -116,18 +116,10 @@ const AdminPanel = () => {
     try {
       console.log('Starting fetchWithdrawalRequests...');
       
-      // First get withdrawal requests with user profiles in a single query
+      // Get withdrawal requests
       const { data: withdrawalData, error: withdrawalError } = await supabase
         .from('withdrawal_requests')
-        .select(`
-          *,
-          profiles:affiliate_id (
-            id,
-            email,
-            name,
-            role
-          )
-        `)
+        .select('*')
         .in('status', ['pending', 'approved'])
         .order('created_at', { ascending: false });
 
@@ -136,7 +128,7 @@ const AdminPanel = () => {
         throw withdrawalError;
       }
 
-      console.log('Raw withdrawal data with profiles:', withdrawalData);
+      console.log('Raw withdrawal data:', withdrawalData);
 
       if (!withdrawalData || withdrawalData.length === 0) {
         console.log('No withdrawal requests found');
@@ -167,14 +159,10 @@ const AdminPanel = () => {
       // Transform the data with proper user type detection
       const transformedData: WithdrawalRequest[] = withdrawalData.map(req => {
         const isBusinessUser = businessUserIds.has(req.affiliate_id);
-        const profile = req.profiles;
         
         console.log(`Request ${req.id}:`, {
           affiliate_id: req.affiliate_id,
-          profile: profile,
-          isBusinessUser: isBusinessUser,
-          email: profile?.email || 'No Email',
-          name: profile?.name || 'Unknown User'
+          isBusinessUser: isBusinessUser
         });
         
         return {
@@ -189,8 +177,8 @@ const AdminPanel = () => {
           affiliate_id: req.affiliate_id,
           notes: req.notes,
           profiles: {
-            name: profile?.name || (isBusinessUser ? 'Business User' : 'Affiliate User'),
-            email: profile?.email || 'No Email Available',
+            name: isBusinessUser ? 'Business User' : 'Affiliate User',
+            email: 'User',
             role: isBusinessUser ? 'business' : 'affiliate'
           }
         };
@@ -371,8 +359,6 @@ const AdminPanel = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User Name</TableHead>
-                <TableHead>User Email</TableHead>
                 <TableHead>User Type</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Bank Details</TableHead>
@@ -386,16 +372,6 @@ const AdminPanel = () => {
             <TableBody>
               {requests.map((request) => (
                 <TableRow key={request.id}>
-                  <TableCell>
-                    <div className="text-sm font-medium">
-                      {request.profiles.name}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {request.profiles.email}
-                    </div>
-                  </TableCell>
                   <TableCell>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       request.profiles.role === 'business' 
