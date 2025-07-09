@@ -18,6 +18,7 @@ interface AffiliateProfile {
   email: string;
   created_at: string;
   earnings: number | null;
+  role: string;
 }
 
 const AffiliatesTable = () => {
@@ -44,6 +45,11 @@ const AffiliatesTable = () => {
       if (allUsersError) {
         console.error('Error fetching all users:', allUsersError);
       }
+
+      // Check specifically for the user mentioned
+      console.log('Looking for user with email: yeatdagoat1@gmail.com');
+      const targetUser = allUsers?.find(user => user.email === 'yeatdagoat1@gmail.com');
+      console.log('Target user found:', targetUser);
 
       // Now fetch specifically affiliate users
       const { data: affiliatesData, error: affiliatesError } = await supabase
@@ -105,9 +111,27 @@ const AffiliatesTable = () => {
             <div className="space-y-2">
               {debugInfo.map((user) => (
                 <div key={user.id} className="text-sm">
-                  <strong>{user.name}</strong> ({user.email}) - Role: <span className="font-mono bg-muted px-1 rounded">{user.role}</span>
+                  <strong>{user.name}</strong> ({user.email}) - Role: 
+                  <span className={`font-mono px-1 rounded ml-1 ${
+                    user.email === 'yeatdagoat1@gmail.com' 
+                      ? 'bg-yellow-100 text-yellow-800' 
+                      : 'bg-muted'
+                  }`}>
+                    {user.role}
+                  </span>
+                  {user.email === 'yeatdagoat1@gmail.com' && (
+                    <span className="ml-2 text-yellow-600 font-semibold">← TARGET USER</span>
+                  )}
                 </div>
               ))}
+            </div>
+            <div className="mt-4 p-3 bg-blue-50 rounded">
+              <p className="text-sm text-blue-800">
+                <strong>Analysis:</strong> Looking for user "yeatdagoat1@gmail.com" - 
+                {debugInfo.find(u => u.email === 'yeatdagoat1@gmail.com') 
+                  ? `Found with role: "${debugInfo.find(u => u.email === 'yeatdagoat1@gmail.com')?.role}"` 
+                  : 'Not found in database'}
+              </p>
             </div>
           </div>
         </GlassCard>
