@@ -1,10 +1,7 @@
 
-import emailjs from '@emailjs/browser';
-
-// EmailJS Configuration
-const EMAILJS_SERVICE_ID = 'service_zvna17d';
-const EMAILJS_TEMPLATE_ID = 'template_bu5ya5t';
-const EMAILJS_PUBLIC_KEY = '6Fm0hJrxDmsYM7Umi';
+// Elastic Email Configuration
+const ELASTIC_EMAIL_API_KEY = 'your-elastic-email-api-key-here';
+const ELASTIC_EMAIL_API_URL = 'https://api.elasticemail.com/v2/email/send';
 
 interface EmailNotificationData {
   type: 'withdrawal_request'
@@ -15,27 +12,32 @@ interface EmailNotificationData {
 
 export const sendEmailNotification = async (notificationData: EmailNotificationData) => {
   try {
-    console.log('Sending email notification via EmailJS:', notificationData);
+    console.log('Sending email notification via Elastic Email:', notificationData);
     
-    const templateParams = {
-      to_email: notificationData.userEmail,
-      to_name: notificationData.userName,
-      subject: getEmailSubject(notificationData.type, notificationData.data),
-      message: getEmailMessage(notificationData.type, notificationData.data, notificationData.userName),
-      from_name: 'PAUAffiliate Team'
-    };
+    const formData = new FormData();
+    formData.append('apikey', ELASTIC_EMAIL_API_KEY);
+    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('fromName', 'PAUAffiliate Team');
+    formData.append('to', notificationData.userEmail);
+    formData.append('subject', getEmailSubject(notificationData.type, notificationData.data));
+    formData.append('bodyText', getEmailMessage(notificationData.type, notificationData.data, notificationData.userName));
 
-    const result = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
-      templateParams,
-      EMAILJS_PUBLIC_KEY
-    );
+    const response = await fetch(ELASTIC_EMAIL_API_URL, {
+      method: 'POST',
+      body: formData
+    });
 
-    console.log('Email sent successfully via EmailJS:', result);
-    return { success: true, messageId: result.text };
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      console.log('Email sent successfully via Elastic Email:', result);
+      return { success: true, messageId: result.data.messageid };
+    } else {
+      console.error('Error sending email via Elastic Email:', result);
+      return { success: false, error: result.error || 'Failed to send email' };
+    }
   } catch (error) {
-    console.error('Error sending email via EmailJS:', error);
+    console.error('Error sending email via Elastic Email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
   }
 };
@@ -52,17 +54,19 @@ export const sendWithdrawalRequestEmail = async (
   }
 ) => {
   try {
-    console.log('Sending withdrawal request email via EmailJS:', {
+    console.log('Sending withdrawal request email via Elastic Email:', {
       userEmail,
       userName,
       withdrawalData
     });
 
-    const templateParams = {
-      to_email: userEmail,
-      to_name: userName,
-      subject: 'Withdrawal Request Submitted - PAUAffiliate',
-      message: `Hello ${userName},
+    const formData = new FormData();
+    formData.append('apikey', ELASTIC_EMAIL_API_KEY);
+    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('fromName', 'PAUAffiliate Team');
+    formData.append('to', userEmail);
+    formData.append('subject', 'Withdrawal Request Submitted - PAUAffiliate');
+    formData.append('bodyText', `Hello ${userName},
 
 Your withdrawal request has been submitted successfully and is being processed.
 
@@ -75,19 +79,22 @@ Details:
 Withdrawals are processed within 24-48 hours. You'll receive email notifications about status updates.
 
 Best regards,
-PAUAffiliate Team`,
-      from_name: 'PAUAffiliate Team'
-    };
+PAUAffiliate Team`);
 
-    const result = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
-      templateParams,
-      EMAILJS_PUBLIC_KEY
-    );
+    const response = await fetch(ELASTIC_EMAIL_API_URL, {
+      method: 'POST',
+      body: formData
+    });
 
-    console.log('Withdrawal request email sent successfully:', result);
-    return { success: true, messageId: result.text };
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      console.log('Withdrawal request email sent successfully:', result);
+      return { success: true, messageId: result.data.messageid };
+    } else {
+      console.error('Error sending withdrawal request email:', result);
+      return { success: false, error: result.error || 'Failed to send withdrawal request email' };
+    }
   } catch (error) {
     console.error('Error sending withdrawal request email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send withdrawal request email' };
@@ -105,34 +112,39 @@ export const sendGeneralNotificationEmail = async (
   }
 ) => {
   try {
-    console.log('Sending general notification email via EmailJS:', {
+    console.log('Sending general notification email via Elastic Email:', {
       userEmail,
       userName,
       notificationData
     });
 
-    const templateParams = {
-      to_email: userEmail,
-      to_name: userName,
-      subject: `${notificationData.title} - PAUAffiliate`,
-      message: `Hello ${userName},
+    const formData = new FormData();
+    formData.append('apikey', ELASTIC_EMAIL_API_KEY);
+    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('fromName', 'PAUAffiliate Team');
+    formData.append('to', userEmail);
+    formData.append('subject', `${notificationData.title} - PAUAffiliate`);
+    formData.append('bodyText', `Hello ${userName},
 
 ${notificationData.message}
 
 Best regards,
-PAUAffiliate Team`,
-      from_name: 'PAUAffiliate Team'
-    };
+PAUAffiliate Team`);
 
-    const result = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
-      templateParams,
-      EMAILJS_PUBLIC_KEY
-    );
+    const response = await fetch(ELASTIC_EMAIL_API_URL, {
+      method: 'POST',
+      body: formData
+    });
 
-    console.log('General notification email sent successfully:', result);
-    return { success: true, messageId: result.text };
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      console.log('General notification email sent successfully:', result);
+      return { success: true, messageId: result.data.messageid };
+    } else {
+      console.error('Error sending general notification email:', result);
+      return { success: false, error: result.error || 'Failed to send general notification email' };
+    }
   } catch (error) {
     console.error('Error sending general notification email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send general notification email' };
@@ -153,18 +165,20 @@ export const sendWithdrawalStatusEmail = async (
   }
 ) => {
   try {
-    console.log('Sending withdrawal status email via EmailJS:', {
+    console.log('Sending withdrawal status email via Elastic Email:', {
       userEmail,
       userName,
       statusData
     });
 
     const statusMessage = getStatusMessage(statusData.status);
-    const templateParams = {
-      to_email: userEmail,
-      to_name: userName,
-      subject: `Withdrawal ${statusData.status.charAt(0).toUpperCase() + statusData.status.slice(1)} - PAUAffiliate`,
-      message: `Hello ${userName},
+    const formData = new FormData();
+    formData.append('apikey', ELASTIC_EMAIL_API_KEY);
+    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('fromName', 'PAUAffiliate Team');
+    formData.append('to', userEmail);
+    formData.append('subject', `Withdrawal ${statusData.status.charAt(0).toUpperCase() + statusData.status.slice(1)} - PAUAffiliate`);
+    formData.append('bodyText', `Hello ${userName},
 
 ${statusMessage}
 
@@ -181,19 +195,22 @@ ${statusData.status === 'approved' ? 'Your funds will be transferred to your ban
 ${statusData.status === 'rejected' ? 'If you have any questions, please contact our support team.' : ''}
 
 Best regards,
-PAUAffiliate Team`,
-      from_name: 'PAUAffiliate Team'
-    };
+PAUAffiliate Team`);
 
-    const result = await emailjs.send(
-      EMAILJS_SERVICE_ID,
-      EMAILJS_TEMPLATE_ID,
-      templateParams,
-      EMAILJS_PUBLIC_KEY
-    );
+    const response = await fetch(ELASTIC_EMAIL_API_URL, {
+      method: 'POST',
+      body: formData
+    });
 
-    console.log('Withdrawal status email sent successfully:', result);
-    return { success: true, messageId: result.text };
+    const result = await response.json();
+    
+    if (response.ok && result.success) {
+      console.log('Withdrawal status email sent successfully:', result);
+      return { success: true, messageId: result.data.messageid };
+    } else {
+      console.error('Error sending withdrawal status email:', result);
+      return { success: false, error: result.error || 'Failed to send withdrawal status email' };
+    }
   } catch (error) {
     console.error('Error sending withdrawal status email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send withdrawal status email' };
