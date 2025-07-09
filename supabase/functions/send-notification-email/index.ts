@@ -45,9 +45,6 @@ serve(async (req) => {
       )
     }
 
-    // Extract server prefix from API key (format: key-server)
-    const serverPrefix = mailchimpApiKey.includes('-') ? mailchimpApiKey.split('-')[1] : 'us1'
-
     const requestBody = await req.json()
     console.log('Request body received:', JSON.stringify(requestBody, null, 2))
     
@@ -68,9 +65,7 @@ serve(async (req) => {
       )
     }
 
-    // Override recipient email for testing
-    const testRecipientEmail = 'cjoguibe@gmail.com'
-    console.log('Processing email notification:', { type, originalEmail: userEmail, testEmail: testRecipientEmail, userName })
+    console.log('Processing email notification:', { type, userEmail, userName })
 
     let emailHtml: string
     let subject: string
@@ -152,7 +147,7 @@ serve(async (req) => {
     }
 
     console.log('Email HTML rendered successfully, sending via Mailchimp...')
-    console.log('Sending to test email:', testRecipientEmail)
+    console.log('Sending to email:', userEmail)
     console.log('Subject:', subject)
 
     // Send email via Mailchimp Transactional API (Mandrill)
@@ -170,7 +165,7 @@ serve(async (req) => {
           from_name: 'PAUAffiliate',
           to: [
             {
-              email: testRecipientEmail,
+              email: userEmail,
               name: userName,
               type: 'to'
             }
@@ -233,7 +228,7 @@ serve(async (req) => {
         )
       }
       
-      console.log('Email sent successfully via Mailchimp to:', testRecipientEmail, 'Message ID:', firstResult._id)
+      console.log('Email sent successfully via Mailchimp to:', userEmail, 'Message ID:', firstResult._id)
       
       return new Response(
         JSON.stringify({ 
@@ -241,7 +236,7 @@ serve(async (req) => {
           message: 'Email sent successfully via Mailchimp', 
           messageId: firstResult._id,
           status: firstResult.status,
-          sentTo: testRecipientEmail,
+          sentTo: userEmail,
           subject: subject,
           timestamp: new Date().toISOString()
         }),
