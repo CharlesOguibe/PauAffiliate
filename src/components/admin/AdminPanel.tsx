@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -630,13 +631,13 @@ const AdminPanel = () => {
       </GlassCard>
 
       {/* Pending Withdrawal Requests - Affiliates */}
-      {renderWithdrawalTable(affiliatePendingWithdrawals, "Pending Withdrawal Requests - Affiliates", true, false)}
+      {renderWithdrawalTable(affiliatePendingWithdrawals, "Pending Withdrawal Requests", true, false)}
 
       {/* Pending Withdrawal Requests - Business */}
       {renderWithdrawalTable(businessPendingWithdrawals, "Pending Withdrawal Requests - Business", true, false)}
 
       {/* Approved Withdrawal Requests - Affiliates */}
-      {renderWithdrawalTable(affiliateApprovedWithdrawals, "Approved Withdrawals - Affiliates", false, true)}
+      {renderWithdrawalTable(affiliateApprovedWithdrawals, "Approved Withdrawals", false, true)}
 
       {/* Approved Withdrawal Requests - Business */}
       {renderWithdrawalTable(businessApprovedWithdrawals, "Approved Withdrawals - Business", false, true)}
