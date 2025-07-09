@@ -10,21 +10,23 @@ interface EmailNotificationData {
 
 export const sendEmailNotification = async (notificationData: EmailNotificationData) => {
   try {
-    console.log('Sending email notification via Supabase edge function:', notificationData);
+    console.log('🚀 Sending email notification via Supabase edge function:', notificationData);
     
     const { data, error } = await supabase.functions.invoke('send-notification-email', {
       body: notificationData
     });
 
+    console.log('📧 Edge function response:', { data, error });
+
     if (error) {
-      console.error('Error sending email via edge function:', error);
+      console.error('❌ Error sending email via edge function:', error);
       return { success: false, error: error.message };
     }
 
-    console.log('Email sent successfully via edge function:', data);
-    return { success: true, messageId: data.messageId };
+    console.log('✅ Email sent successfully via edge function:', data);
+    return { success: true, messageId: data?.messageId };
   } catch (error) {
-    console.error('Error sending email via edge function:', error);
+    console.error('❌ Error sending email via edge function:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
   }
 };
@@ -41,30 +43,23 @@ export const sendWithdrawalRequestEmail = async (
   }
 ) => {
   try {
-    console.log('Sending withdrawal request email via edge function:', {
+    console.log('🚀 Sending withdrawal request email:', {
       userEmail,
       userName,
       withdrawalData
     });
 
-    const { data, error } = await supabase.functions.invoke('send-notification-email', {
-      body: {
-        type: 'withdrawal_request',
-        userEmail,
-        userName,
-        data: withdrawalData
-      }
+    const result = await sendEmailNotification({
+      type: 'withdrawal_request',
+      userEmail,
+      userName,
+      data: withdrawalData
     });
 
-    if (error) {
-      console.error('Error sending withdrawal request email:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('Withdrawal request email sent successfully:', data);
-    return { success: true, messageId: data.messageId };
+    console.log('📧 Withdrawal request email result:', result);
+    return result;
   } catch (error) {
-    console.error('Error sending withdrawal request email:', error);
+    console.error('❌ Error sending withdrawal request email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send withdrawal request email' };
   }
 };
@@ -80,30 +75,23 @@ export const sendGeneralNotificationEmail = async (
   }
 ) => {
   try {
-    console.log('Sending general notification email via edge function:', {
+    console.log('🚀 Sending general notification email:', {
       userEmail,
       userName,
       notificationData
     });
 
-    const { data, error } = await supabase.functions.invoke('send-notification-email', {
-      body: {
-        type: 'general',
-        userEmail,
-        userName,
-        data: notificationData
-      }
+    const result = await sendEmailNotification({
+      type: 'general',
+      userEmail,
+      userName,
+      data: notificationData
     });
 
-    if (error) {
-      console.error('Error sending general notification email:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('General notification email sent successfully:', data);
-    return { success: true, messageId: data.messageId };
+    console.log('📧 General notification email result:', result);
+    return result;
   } catch (error) {
-    console.error('Error sending general notification email:', error);
+    console.error('❌ Error sending general notification email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send general notification email' };
   }
 };
@@ -122,30 +110,23 @@ export const sendWithdrawalStatusEmail = async (
   }
 ) => {
   try {
-    console.log('Sending withdrawal status email via edge function:', {
+    console.log('🚀 Sending withdrawal status email:', {
       userEmail,
       userName,
       statusData
     });
 
-    const { data, error } = await supabase.functions.invoke('send-notification-email', {
-      body: {
-        type: 'withdrawal_status',
-        userEmail,
-        userName,
-        data: statusData
-      }
+    const result = await sendEmailNotification({
+      type: 'withdrawal_status',
+      userEmail,
+      userName,
+      data: statusData
     });
 
-    if (error) {
-      console.error('Error sending withdrawal status email:', error);
-      return { success: false, error: error.message };
-    }
-
-    console.log('Withdrawal status email sent successfully:', data);
-    return { success: true, messageId: data.messageId };
+    console.log('📧 Withdrawal status email result:', result);
+    return result;
   } catch (error) {
-    console.error('Error sending withdrawal status email:', error);
+    console.error('❌ Error sending withdrawal status email:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send withdrawal status email' };
   }
 };

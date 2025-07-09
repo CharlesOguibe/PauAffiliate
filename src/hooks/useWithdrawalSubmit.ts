@@ -51,12 +51,12 @@ export const useWithdrawalSubmit = () => {
 
   const sendNotifications = async (amount: number, bankDetails: BankDetails) => {
     if (!user?.email || !user?.name) {
-      console.error('User email or name not available for notifications');
+      console.error('❌ User email or name not available for notifications');
       return;
     }
 
     try {
-      console.log('Starting notification process for withdrawal request:', {
+      console.log('🔄 Starting notification process for withdrawal request:', {
         userEmail: user.email,
         userName: user.name,
         amount,
@@ -64,7 +64,7 @@ export const useWithdrawalSubmit = () => {
       });
 
       // Send email notification to user
-      console.log('Sending withdrawal request email to user...');
+      console.log('📧 Sending withdrawal request email to user:', user.email);
       const userEmailResult = await sendWithdrawalRequestEmail(user.email, user.name, {
         amount,
         bankName: bankDetails.bankName,
@@ -72,14 +72,16 @@ export const useWithdrawalSubmit = () => {
         accountName: bankDetails.accountName
       });
       
+      console.log('📧 User email result:', userEmailResult);
+      
       if (userEmailResult.success) {
-        console.log('User notification email sent successfully');
+        console.log('✅ User notification email sent successfully');
       } else {
-        console.error('Failed to send user notification email:', userEmailResult.error);
+        console.error('❌ Failed to send user notification email:', userEmailResult.error);
       }
 
       // Send copy to monitoring email
-      console.log('Sending copy to monitoring email...');
+      console.log('📧 Sending copy to monitoring email: cjoguibe@gmail.com');
       const monitoringEmailResult = await sendWithdrawalRequestEmail('cjoguibe@gmail.com', 'Admin (Copy)', {
         amount,
         bankName: bankDetails.bankName,
@@ -87,33 +89,49 @@ export const useWithdrawalSubmit = () => {
         accountName: bankDetails.accountName
       });
       
+      console.log('📧 Monitoring email result:', monitoringEmailResult);
+      
       if (monitoringEmailResult.success) {
-        console.log('Monitoring email sent successfully');
+        console.log('✅ Monitoring email sent successfully');
       } else {
-        console.error('Failed to send monitoring email:', monitoringEmailResult.error);
+        console.error('❌ Failed to send monitoring email:', monitoringEmailResult.error);
       }
 
       // Send general notification to user
-      console.log('Sending general notification to user...');
+      console.log('📧 Sending general notification to user:', user.email);
       const generalNotificationResult = await sendGeneralNotificationEmail(user.email, user.name, {
         title: 'Withdrawal Request Submitted',
         message: `Your withdrawal request for ₦${amount.toFixed(2)} has been submitted and is under review. You will be notified once it's processed.`,
         notificationType: 'info'
       });
       
+      console.log('📧 General notification result:', generalNotificationResult);
+      
       if (generalNotificationResult.success) {
-        console.log('General notification sent successfully');
+        console.log('✅ General notification sent successfully');
       } else {
-        console.error('Failed to send general notification:', generalNotificationResult.error);
+        console.error('❌ Failed to send general notification:', generalNotificationResult.error);
       }
 
       // Notify admin users
-      console.log('Notifying admin users...');
+      console.log('📧 Notifying admin users...');
       await notifyAdminsOfWithdrawalRequest(amount, user.email, bankDetails);
       
-      console.log('All notification processes completed');
+      console.log('✅ All notification processes completed');
+      
+      // Show success message to user
+      toast({
+        title: "Notifications Sent",
+        description: "Email notifications have been sent. Please check your email and spam folder.",
+      });
+      
     } catch (error) {
-      console.error('Error sending notifications:', error);
+      console.error('❌ Error sending notifications:', error);
+      toast({
+        title: "Notification Error",
+        description: "There was an error sending email notifications. Please contact support.",
+        variant: "destructive",
+      });
     }
   };
 
