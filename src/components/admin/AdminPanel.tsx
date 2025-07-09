@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/table";
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import NotificationBell from '@/components/notifications/NotificationBell';
 
 // Type for database function responses
 interface DatabaseFunctionResponse {
@@ -471,7 +470,7 @@ const AdminPanel = () => {
 
   return (
     <div className="space-y-8 mb-8">
-      {/* Admin Header with Notifications */}
+      {/* Admin Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-medium tracking-tight flex items-center gap-3">
@@ -481,14 +480,6 @@ const AdminPanel = () => {
           <p className="text-muted-foreground mt-2">
             Manage businesses, withdrawals, and system notifications
           </p>
-        </div>
-        
-        <div className="flex items-center space-x-4">
-          <NotificationBell
-            notifications={notifications}
-            onMarkAsRead={handleMarkNotificationAsRead}
-            onClearAll={handleClearNotifications}
-          />
         </div>
       </div>
 
