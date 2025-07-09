@@ -141,10 +141,10 @@ const AdminPanel = () => {
       // Get unique affiliate IDs
       const affiliateIds = [...new Set(withdrawalData.map(req => req.affiliate_id))];
       
-      // Fetch profiles for these affiliates
+      // Fetch profiles for these users to get their emails
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, role')
+        .select('id, email, name')
         .in('id', affiliateIds);
 
       if (profilesError) {
@@ -168,20 +168,29 @@ const AdminPanel = () => {
 
       const businessUserIds = new Set(businessProfilesData?.map(bp => bp.id) || []);
 
-      // Create a map of affiliate ID to email and role
+      // Create a map of user ID to profile info
       const profileMap = new Map();
       if (profilesData) {
         profilesData.forEach(profile => {
-          // Determine actual user type based on business_profiles existence
-          const actualRole = businessUserIds.has(profile.id) ? 'business' : 'affiliate';
-          profileMap.set(profile.id, { email: profile.email, role: actualRole });
+          // Check if this user is a business user
+          const isBusinessUser = businessUserIds.has(profile.id);
+          profileMap.set(profile.id, { 
+            email: profile.email, 
+            name: profile.name,
+            role: isBusinessUser ? 'business' : 'affiliate' 
+          });
         });
       }
 
       // Transform the data with proper email lookup and corrected user type
       const transformedData: WithdrawalRequest[] = withdrawalData.map(req => {
-        const profile = profileMap.get(req.affiliate_id) || { email: 'No Email Available', role: 'affiliate' };
-        console.log(`Request ${req.id}: affiliate_id ${req.affiliate_id} -> email: ${profile.email}, corrected role: ${profile.role}`);
+        const profile = profileMap.get(req.affiliate_id) || { 
+          email: 'No Email Available', 
+          name: 'Unknown User',
+          role: 'affiliate' 
+        };
+        
+        console.log(`Request ${req.id}: affiliate_id ${req.affiliate_id} -> email: ${profile.email}, name: ${profile.name}, role: ${profile.role}`);
         
         return {
           id: req.id,
@@ -195,7 +204,7 @@ const AdminPanel = () => {
           affiliate_id: req.affiliate_id,
           notes: req.notes,
           profiles: {
-            name: profile.role === 'business' ? 'Business User' : 'Affiliate',
+            name: profile.name || (profile.role === 'business' ? 'Business User' : 'Affiliate'),
             email: profile.email,
             role: profile.role
           }
