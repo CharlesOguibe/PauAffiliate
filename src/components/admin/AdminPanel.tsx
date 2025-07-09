@@ -114,20 +114,12 @@ const AdminPanel = () => {
 
   const fetchWithdrawalRequests = async () => {
     try {
-      console.log('Starting fetchWithdrawalRequests...');
+      console.log('Starting withdrawal requests fetch...');
       
-      // First get withdrawal requests with user profiles in a single query
+      // First get withdrawal requests
       const { data: withdrawalData, error: withdrawalError } = await supabase
         .from('withdrawal_requests')
-        .select(`
-          *,
-          profiles:affiliate_id (
-            id,
-            email,
-            name,
-            role
-          )
-        `)
+        .select('*')
         .in('status', ['pending', 'approved'])
         .order('created_at', { ascending: false });
 
@@ -136,7 +128,7 @@ const AdminPanel = () => {
         throw withdrawalError;
       }
 
-      console.log('Raw withdrawal data with profiles:', withdrawalData);
+      console.log('Raw withdrawal requests:', withdrawalData);
 
       if (!withdrawalData || withdrawalData.length === 0) {
         console.log('No withdrawal requests found');
@@ -147,10 +139,24 @@ const AdminPanel = () => {
         return;
       }
 
-      // Get all user IDs to check which ones are business users
-      const userIds = withdrawalData.map(req => req.affiliate_id);
+      // Get unique user IDs from withdrawal requests
+      const userIds = [...new Set(withdrawalData.map(req => req.affiliate_id))];
+      console.log('Unique user IDs from withdrawals:', userIds);
       
-      // Check which users have business profiles
+      // Fetch profiles for these users to get their emails and names
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, name')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Profiles query error:', profilesError);
+        throw profilesError;
+      }
+
+      console.log('Profiles data:', profilesData);
+
+      // Check which users are business users by looking at business_profiles
       const { data: businessProfilesData, error: businessError } = await supabase
         .from('business_profiles')
         .select('id')
@@ -160,22 +166,58 @@ const AdminPanel = () => {
         console.error('Business profiles query error:', businessError);
       }
 
-      console.log('Business profiles for withdrawal users:', businessProfilesData);
+      console.log('Business profiles data:', businessProfilesData);
 
+      // Create a set of business user IDs for quick lookup
       const businessUserIds = new Set(businessProfilesData?.map(bp => bp.id) || []);
+      console.log('Business user IDs set:', businessUserIds);
 
-      // Transform the data with proper user type detection
-      const transformedData: WithdrawalRequest[] = withdrawalData.map(req => {
-        const isBusinessUser = businessUserIds.has(req.affiliate_id);
-        const profile = req.profiles;
-        
-        console.log(`Request ${req.id}:`, {
-          affiliate_id: req.affiliate_id,
-          profile: profile,
-          isBusinessUser: isBusinessUser,
-          email: profile?.email || 'No Email',
-          name: profile?.name || 'Unknown User'
+      // Create a map of user ID to profile info
+      const profileMap = new Map();
+      if (profilesData) {
+        profilesData.forEach(profile => {
+          // Check if this user is a business user
+          const isBusinessUser = businessUserIds.has(profile.id);
+          const userRole = isBusinessUser ? 'business' : 'affiliate';
+          
+          console.log(`User ${profile.id} (${profile.email}): isBusinessUser=${isBusinessUser}, role=${userRole}`);
+          
+          profileMap.set(profile.id, { 
+            email: profile.email, 
+            name: profile.name,
+            role: userRole 
+          });
         });
+      }
+
+      console.log('Profile map:', profileMap);
+
+      // Transform the data with proper email lookup and user type detection
+      const transformedData: WithdrawalRequest[] = withdrawalData.map(req => {
+        const profile = profileMap.get(req.affiliate_id);
+        
+        if (!profile) {
+          console.warn(`No profile found for user ${req.affiliate_id}`);
+          return {
+            id: req.id,
+            amount: req.amount,
+            bank_name: req.bank_name,
+            account_number: req.account_number,
+            account_name: req.account_name,
+            status: req.status as 'pending' | 'approved' | 'rejected' | 'completed',
+            created_at: req.created_at,
+            processed_at: req.processed_at,
+            affiliate_id: req.affiliate_id,
+            notes: req.notes,
+            profiles: {
+              name: 'Unknown User',
+              email: 'No Email Available',
+              role: 'affiliate'
+            }
+          };
+        }
+        
+        console.log(`Transforming request ${req.id}: user=${req.affiliate_id}, email=${profile.email}, name=${profile.name}, role=${profile.role}`);
         
         return {
           id: req.id,
@@ -189,9 +231,9 @@ const AdminPanel = () => {
           affiliate_id: req.affiliate_id,
           notes: req.notes,
           profiles: {
-            name: profile?.name || (isBusinessUser ? 'Business User' : 'Affiliate User'),
-            email: profile?.email || 'No Email Available',
-            role: isBusinessUser ? 'business' : 'affiliate'
+            name: profile.name || (profile.role === 'business' ? 'Business User' : 'Affiliate User'),
+            email: profile.email,
+            role: profile.role
           }
         };
       });
@@ -207,12 +249,11 @@ const AdminPanel = () => {
       const affiliateApproved = approvedRequests.filter(req => req.profiles.role === 'affiliate');
       const businessApproved = approvedRequests.filter(req => req.profiles.role === 'business');
       
-      console.log('Categorized requests:', {
-        affiliatePending: affiliatePending.length,
-        businessPending: businessPending.length,
-        affiliateApproved: affiliateApproved.length,
-        businessApproved: businessApproved.length
-      });
+      console.log('Split results:');
+      console.log('Affiliate pending:', affiliatePending);
+      console.log('Business pending:', businessPending);
+      console.log('Affiliate approved:', affiliateApproved);
+      console.log('Business approved:', businessApproved);
       
       setAffiliatePendingWithdrawals(affiliatePending);
       setBusinessPendingWithdrawals(businessPending);
@@ -371,8 +412,8 @@ const AdminPanel = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User Name</TableHead>
                 <TableHead>User Email</TableHead>
+                <TableHead>User Name</TableHead>
                 <TableHead>User Type</TableHead>
                 <TableHead>Amount</TableHead>
                 <TableHead>Bank Details</TableHead>
@@ -387,13 +428,13 @@ const AdminPanel = () => {
               {requests.map((request) => (
                 <TableRow key={request.id}>
                   <TableCell>
-                    <div className="text-sm font-medium">
-                      {request.profiles.name}
+                    <div className="text-sm">
+                      <div className="font-medium">{request.profiles.email}</div>
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm">
-                      {request.profiles.email}
+                      <div className="font-medium">{request.profiles.name}</div>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -642,14 +683,14 @@ const AdminPanel = () => {
         </div>
       </GlassCard>
 
-      {/* Pending Withdrawal Requests - Affiliates */}
-      {renderWithdrawalTable(affiliatePendingWithdrawals, "Pending Withdrawal Requests", true, false)}
+      {/* Pending Withdrawal Requests - Affiliate */}
+      {renderWithdrawalTable(affiliatePendingWithdrawals, "Pending Withdrawal Requests - Affiliate", true, false)}
 
       {/* Pending Withdrawal Requests - Business */}
       {renderWithdrawalTable(businessPendingWithdrawals, "Pending Withdrawal Requests - Business", true, false)}
 
-      {/* Approved Withdrawal Requests - Affiliates */}
-      {renderWithdrawalTable(affiliateApprovedWithdrawals, "Approved Withdrawals", false, true)}
+      {/* Approved Withdrawal Requests - Affiliate */}
+      {renderWithdrawalTable(affiliateApprovedWithdrawals, "Approved Withdrawals - Affiliate", false, true)}
 
       {/* Approved Withdrawal Requests - Business */}
       {renderWithdrawalTable(businessApprovedWithdrawals, "Approved Withdrawals - Business", false, true)}
