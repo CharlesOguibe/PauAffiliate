@@ -16,14 +16,12 @@ interface AffiliateProfile {
   id: string;
   name: string;
   email: string;
-  role: string;
   created_at: string;
   earnings: number | null;
 }
 
 const AffiliatesTable = () => {
   const [affiliates, setAffiliates] = useState<AffiliateProfile[]>([]);
-  const [allUsers, setAllUsers] = useState<AffiliateProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -34,20 +32,6 @@ const AffiliatesTable = () => {
     try {
       console.log('Fetching affiliates...');
       
-      // First, let's get ALL users to see what roles exist
-      const { data: allUsersData, error: allUsersError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      console.log('All users data:', allUsersData, allUsersError);
-      
-      if (allUsersData) {
-        setAllUsers(allUsersData);
-        console.log('User roles found:', allUsersData.map(u => ({ id: u.id, email: u.email, role: u.role })));
-      }
-
-      // Now get only affiliates
       const { data: affiliatesData, error: affiliatesError } = await supabase
         .from('profiles')
         .select('*')
@@ -98,113 +82,80 @@ const AffiliatesTable = () => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Debug Information */}
-      <GlassCard className="overflow-hidden">
-        <div className="p-6 border-b">
-          <h3 className="text-lg font-semibold text-yellow-600">Debug Information</h3>
-        </div>
-        <div className="p-6">
-          <p className="text-sm text-muted-foreground mb-2">
-            Total users in database: {allUsers.length}
-          </p>
-          <p className="text-sm text-muted-foreground mb-2">
-            Users with 'affiliate' role: {affiliates.length}
-          </p>
-          {allUsers.length > 0 && (
-            <div className="text-sm">
-              <p className="font-medium mb-2">All users and their roles:</p>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {allUsers.map((user) => (
-                  <div key={user.id} className="text-xs bg-muted p-2 rounded">
-                    {user.email} - Role: <span className="font-mono">{user.role}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </GlassCard>
-
-      {/* Affiliates Table */}
-      <GlassCard className="overflow-hidden">
-        <div className="p-6 border-b">
-          <div className="flex items-center space-x-3">
-            <div className="bg-green-500/10 p-2 rounded-full">
-              <Users className="h-5 w-5 text-green-500" />
-            </div>
-            <h2 className="text-xl font-semibold">Affiliates Management</h2>
+    <GlassCard className="overflow-hidden">
+      <div className="p-6 border-b">
+        <div className="flex items-center space-x-3">
+          <div className="bg-green-500/10 p-2 rounded-full">
+            <Users className="h-5 w-5 text-green-500" />
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Total affiliates: {totalAffiliates}
-          </p>
+          <h2 className="text-xl font-semibold">Affiliates Management</h2>
         </div>
-        
-        {totalAffiliates === 0 ? (
-          <div className="p-6 text-center">
-            <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-muted-foreground">No affiliates found</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Users might be registered with different roles. Check the debug information above.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Affiliate Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Affiliate ID</TableHead>
-                  <TableHead>Total Earnings</TableHead>
-                  <TableHead>Joined</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {affiliates.map((affiliate) => (
-                  <TableRow key={affiliate.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center space-x-2">
-                        <div className="bg-green-500/10 p-1.5 rounded-full">
-                          <Users className="h-3 w-3 text-green-500" />
-                        </div>
-                        <span>{affiliate.name}</span>
+        <p className="text-sm text-muted-foreground mt-1">
+          Total affiliates: {totalAffiliates}
+        </p>
+      </div>
+      
+      {totalAffiliates === 0 ? (
+        <div className="p-6 text-center">
+          <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground">No affiliates found</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Affiliate Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Affiliate ID</TableHead>
+                <TableHead>Total Earnings</TableHead>
+                <TableHead>Joined</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {affiliates.map((affiliate) => (
+                <TableRow key={affiliate.id}>
+                  <TableCell className="font-medium">
+                    <div className="flex items-center space-x-2">
+                      <div className="bg-green-500/10 p-1.5 rounded-full">
+                        <Users className="h-3 w-3 text-green-500" />
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">{affiliate.email}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center space-x-2">
-                        <IdCard className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
-                          {affiliate.id.slice(0, 8)}...
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      <span className={`${
-                        (affiliate.earnings || 0) > 0 
-                          ? 'text-green-600' 
-                          : 'text-muted-foreground'
-                      }`}>
-                        {formatEarnings(affiliate.earnings)}
+                      <span>{affiliate.name}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">{affiliate.email}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <IdCard className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-xs font-mono bg-muted px-2 py-1 rounded">
+                        {affiliate.id.slice(0, 8)}...
                       </span>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDate(affiliate.created_at)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </GlassCard>
-    </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    <span className={`${
+                      (affiliate.earnings || 0) > 0 
+                        ? 'text-green-600' 
+                        : 'text-muted-foreground'
+                    }`}>
+                      {formatEarnings(affiliate.earnings)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(affiliate.created_at)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </GlassCard>
   );
 };
 
