@@ -1,6 +1,6 @@
 
 // Elastic Email Configuration
-const ELASTIC_EMAIL_API_KEY = 'your-elastic-email-api-key-here';
+const ELASTIC_EMAIL_API_KEY = '62EDB0F2AF30F81A0B559E371544FDFBFF66F0BFCBCEB86D67AB4922CB4F92023EC11BA5F8A97B2139F8D6D92467A5D0';
 const ELASTIC_EMAIL_API_URL = 'https://api.elasticemail.com/v2/email/send';
 
 interface EmailNotificationData {

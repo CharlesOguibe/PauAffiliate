@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { sendGeneralNotificationEmail, sendWithdrawalStatusEmail } from './emailNotifications';
 
@@ -25,6 +24,9 @@ export const notifyAdminsOfWithdrawalRequest = async (
       return;
     }
 
+    // Get current date and time for the request
+    const requestedAt = new Date().toLocaleString();
+
     // Always send a notification to the monitoring email
     console.log('Sending admin notification to monitoring email');
     await sendGeneralNotificationEmail(
@@ -32,7 +34,23 @@ export const notifyAdminsOfWithdrawalRequest = async (
       'Admin',
       {
         title: 'New Withdrawal Request - Action Required',
-        message: `A new withdrawal request has been submitted by ${affiliateEmail} for ₦${withdrawalAmount.toFixed(2)}.\n\nBank Details:\n• Bank: ${bankDetails.bankName}\n• Account: ${bankDetails.accountNumber}\n• Name: ${bankDetails.accountName}\n\nPlease review and process this request in the admin panel.`,
+        message: `
+  Hello Admin,
+
+  A new withdrawal request has been submitted by ${affiliateEmail}.
+
+  🧾 Request Details:
+  - Amount: ₦${withdrawalAmount}
+  - Bank Name: ${bankDetails.bankName}
+  - Account Number: ${bankDetails.accountNumber}
+  - Account Name: ${bankDetails.accountName}
+  - Submitted At: ${requestedAt}
+
+  Please log in to the admin dashboard to review and process this request.
+
+  Regards,
+  PAUAffiliate System
+`,
         notificationType: 'warning'
       }
     );
@@ -58,7 +76,23 @@ export const notifyAdminsOfWithdrawalRequest = async (
         admin.name || 'Admin',
         {
           title: 'New Withdrawal Request - Action Required',
-          message: `A new withdrawal request has been submitted by ${affiliateEmail} for ₦${withdrawalAmount.toFixed(2)}.\n\nBank Details:\n• Bank: ${bankDetails.bankName}\n• Account: ${bankDetails.accountNumber}\n• Name: ${bankDetails.accountName}\n\nPlease review and process this request in the admin panel.`,
+          message: `
+  Hello Admin,
+
+  A new withdrawal request has been submitted by ${affiliateEmail}.
+
+  🧾 Request Details:
+  - Amount: ₦${withdrawalAmount}
+  - Bank Name: ${bankDetails.bankName}
+  - Account Number: ${bankDetails.accountNumber}
+  - Account Name: ${bankDetails.accountName}
+  - Submitted At: ${requestedAt}
+
+  Please log in to the admin dashboard to review and process this request.
+
+  Regards,
+  PAUAffiliate System
+`,
           notificationType: 'warning'
         }
       )
