@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -53,29 +52,43 @@ const Dashboard = () => {
 
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [productsCount, setProductsCount] = useState(0);
+  const [totalReferralLinks, setTotalReferralLinks] = useState(0);
 
-  // Fetch products count for business users
+  // Fetch products count and total referral links for business users
   useEffect(() => {
-    const fetchProductsCount = async () => {
+    const fetchBusinessMetrics = async () => {
       if (isBusinessUser && user?.id) {
         try {
-          const { count, error } = await supabase
+          // Fetch products count
+          const { count: productCount, error: productError } = await supabase
             .from('products')
             .select('*', { count: 'exact', head: true })
             .eq('business_id', user.id);
 
-          if (error) {
-            console.error('Error fetching products count:', error);
+          if (productError) {
+            console.error('Error fetching products count:', productError);
           } else {
-            setProductsCount(count || 0);
+            setProductsCount(productCount || 0);
+          }
+
+          // Fetch total referral links for business products
+          const { count: referralCount, error: referralError } = await supabase
+            .from('referral_links')
+            .select('*, products!fk_referral_links_product!inner(business_id)', { count: 'exact', head: true })
+            .eq('products.business_id', user.id);
+
+          if (referralError) {
+            console.error('Error fetching referral links count:', referralError);
+          } else {
+            setTotalReferralLinks(referralCount || 0);
           }
         } catch (error) {
-          console.error('Error fetching products count:', error);
+          console.error('Error fetching business metrics:', error);
         }
       }
     };
 
-    fetchProductsCount();
+    fetchBusinessMetrics();
   }, [isBusinessUser, user?.id]);
 
   const copyToClipboard = (code: string, id: string) => {
@@ -211,6 +224,7 @@ const Dashboard = () => {
               isAffiliateUser={false}
               totalEarnings={earnings.total}
               productsCount={productsCount}
+              totalReferralLinks={totalReferralLinks}
             />
 
             <div className="mb-8">
@@ -241,6 +255,7 @@ const Dashboard = () => {
               isAffiliateUser={true}
               totalEarnings={earnings.total}
               productsCount={0}
+              totalReferralLinks={0}
             />
             
             <ReferralLinksTable 

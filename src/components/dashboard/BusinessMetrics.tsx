@@ -9,18 +9,20 @@ interface BusinessMetricsProps {
   isAffiliateUser: boolean;
   totalEarnings?: number;
   productsCount?: number;
+  totalReferralLinks?: number;
 }
 
 const BusinessMetrics = ({ 
   referralLinks, 
   isAffiliateUser, 
   totalEarnings = 0,
-  productsCount = 0
+  productsCount = 0,
+  totalReferralLinks = 0
 }: BusinessMetricsProps) => {
   // For affiliate users, show products they're promoting and their referral links
   // For business users, show their products and total referrals to their products
   const productsMetric = isAffiliateUser ? referralLinks.length : productsCount;
-  const linksMetric = isAffiliateUser ? referralLinks.length : referralLinks.length;
+  const linksMetric = isAffiliateUser ? referralLinks.length : totalReferralLinks;
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
