@@ -266,16 +266,33 @@ const AdminPanel = () => {
     try {
       console.log(`${approve ? 'Approving' : 'Rejecting'} business:`, businessId);
       
+      // Optimistic update - update local state immediately
+      setBusinesses(prevBusinesses => 
+        prevBusinesses.map(business => 
+          business.id === businessId 
+            ? { 
+                ...business, 
+                verified: approve,
+                verified_at: approve ? new Date().toISOString() : null,
+                verified_by: approve ? user?.id || null : null
+              }
+            : business
+        )
+      );
+      
       const { error } = await supabase
         .from('business_profiles')
         .update({
           verified: approve,
-          verified_at: approve ? new Date().toISOString() : null
+          verified_at: approve ? new Date().toISOString() : null,
+          verified_by: approve ? user?.id : null
         })
         .eq('id', businessId);
 
       if (error) {
         console.error('Database update error:', error);
+        // Revert optimistic update on error
+        await fetchBusinesses();
         throw error;
       }
 
@@ -285,9 +302,6 @@ const AdminPanel = () => {
         title: approve ? "Business Verified" : "Business Rejected",
         description: `The business has been ${approve ? 'verified' : 'rejected'} successfully.`,
       });
-
-      // Force refresh the businesses list
-      await fetchBusinesses();
       
     } catch (error) {
       console.error('Error updating business verification:', error);
@@ -532,6 +546,9 @@ const AdminPanel = () => {
 
   const totalPendingWithdrawals = affiliatePendingWithdrawals.length + businessPendingWithdrawals.length;
   const totalApprovedWithdrawals = affiliateApprovedWithdrawals.length + businessApprovedWithdrawals.length;
+  const totalBusinesses = businesses.length;
+  const verifiedBusinesses = businesses.filter(b => b.verified).length;
+  const pendingBusinesses = businesses.filter(b => !b.verified).length;
 
   return (
     <div className="space-y-8 mb-8">
@@ -567,7 +584,7 @@ const AdminPanel = () => {
               </div>
               <div>
                 <div className="text-sm font-medium text-muted-foreground">Total Businesses</div>
-                <div className="text-2xl font-bold">{businesses.length}</div>
+                <div className="text-2xl font-bold">{totalBusinesses}</div>
               </div>
             </div>
             
@@ -577,7 +594,7 @@ const AdminPanel = () => {
               </div>
               <div>
                 <div className="text-sm font-medium text-muted-foreground">Verified Businesses</div>
-                <div className="text-2xl font-bold">{businesses.filter(b => b.verified).length}</div>
+                <div className="text-2xl font-bold">{verifiedBusinesses}</div>
               </div>
             </div>
             
@@ -609,7 +626,7 @@ const AdminPanel = () => {
         <div className="p-6 border-b">
           <h3 className="text-lg font-semibold">Business Verification</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Total businesses: {businesses.length} | Verified: {businesses.filter(b => b.verified).length} | Pending: {businesses.filter(b => !b.verified).length}
+            Total businesses: {totalBusinesses} | Verified: {verifiedBusinesses} | Pending: {pendingBusinesses}
           </p>
         </div>
         <div className="overflow-x-auto">
