@@ -580,6 +580,10 @@ export type Database = {
         }
         Returns: Json
       }
+      verify_business_profile: {
+        Args: { business_id: string; admin_id: string; approve: boolean }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

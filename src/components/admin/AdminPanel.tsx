@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -262,52 +261,42 @@ const AdminPanel = () => {
   };
 
   const handleVerifyBusiness = async (businessId: string, approve: boolean) => {
+    if (!user?.id) return;
+    
     setLoading(true);
     try {
       console.log(`${approve ? 'Approving' : 'Rejecting'} business:`, businessId);
       
-      // Optimistic update - update local state immediately
-      setBusinesses(prevBusinesses => 
-        prevBusinesses.map(business => 
-          business.id === businessId 
-            ? { 
-                ...business, 
-                verified: approve,
-                verified_at: approve ? new Date().toISOString() : null,
-                verified_by: approve ? user?.id || null : null
-              }
-            : business
-        )
-      );
-      
-      const { error } = await supabase
-        .from('business_profiles')
-        .update({
-          verified: approve,
-          verified_at: approve ? new Date().toISOString() : null,
-          verified_by: approve ? user?.id : null
-        })
-        .eq('id', businessId);
+      const { data, error } = await supabase.rpc('verify_business_profile', {
+        business_id: businessId,
+        admin_id: user.id,
+        approve: approve
+      });
 
-      if (error) {
-        console.error('Database update error:', error);
-        // Revert optimistic update on error
-        await fetchBusinesses();
-        throw error;
+      if (error) throw error;
+
+      // Type cast the response
+      const response = data as unknown as DatabaseFunctionResponse;
+
+      if (!response.success) {
+        throw new Error(response.error);
       }
 
       console.log('Business verification updated successfully');
 
       toast({
         title: approve ? "Business Verified" : "Business Rejected",
-        description: `The business has been ${approve ? 'verified' : 'rejected'} successfully.`,
+        description: response.message,
       });
+
+      // Refresh the businesses list to get updated data from database
+      await fetchBusinesses();
       
     } catch (error) {
       console.error('Error updating business verification:', error);
       toast({
         title: "Error",
-        description: "Failed to update business verification status.",
+        description: error instanceof Error ? error.message : "Failed to update business verification status.",
         variant: "destructive",
       });
     } finally {
