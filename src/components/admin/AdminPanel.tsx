@@ -267,67 +267,31 @@ const AdminPanel = () => {
       console.log('Current user:', user?.id);
       console.log('User role from auth context:', user?.role);
       
-      // First check if the business exists and current state
-      const { data: existingBusiness, error: fetchError } = await supabase
-        .from('business_profiles')
-        .select('*')
-        .eq('id', businessId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching business:', fetchError);
-        throw new Error('Business not found');
-      }
-
-      console.log('Existing business data:', existingBusiness);
-
-      // Check if user has admin permissions
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user?.id)
-        .single();
-
-      if (profileError) {
-        console.error('Error fetching user profile:', profileError);
-        throw new Error('Could not verify admin permissions');
-      }
-
-      console.log('User profile:', userProfile);
-
-      if (userProfile.role !== 'admin') {
-        throw new Error('Insufficient permissions. Admin role required.');
-      }
-
-      const updateData = {
-        verified: approve,
-        verified_at: approve ? new Date().toISOString() : null,
-        verified_by: approve ? user?.id : null
-      };
-
-      console.log('Update data:', updateData);
-      
-      const { data, error } = await supabase
-        .from('business_profiles')
-        .update(updateData)
-        .eq('id', businessId)
-        .select('*');
+      // Use service role to bypass RLS for admin operations
+      const { data, error } = await supabase.rpc('verify_business_profile', {
+        business_id: businessId,
+        admin_id: user?.id,
+        approve: approve
+      });
 
       if (error) {
-        console.error('Database update error:', error);
+        console.error('RPC error:', error);
         throw error;
       }
 
-      console.log('Update result:', data);
+      console.log('RPC result:', data);
 
-      if (!data || data.length === 0) {
-        throw new Error('No rows were updated. The business may not exist or you may not have permission to update it.');
+      // Type cast the response
+      const response = data as unknown as DatabaseFunctionResponse;
+
+      if (!response?.success) {
+        throw new Error(response?.error || 'Failed to update business verification status');
       }
 
       // Show success message
       toast({
         title: approve ? "Business Verified" : "Business Rejected",
-        description: `The business has been ${approve ? 'verified' : 'rejected'} successfully.`,
+        description: response.message || `The business has been ${approve ? 'verified' : 'rejected'} successfully.`,
       });
 
       // Refresh the businesses list to get the latest data
