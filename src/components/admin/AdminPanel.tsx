@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -266,42 +265,35 @@ const AdminPanel = () => {
     try {
       console.log(`${approve ? 'Approving' : 'Rejecting'} business:`, businessId);
       
-      // Optimistic update - update local state immediately
-      setBusinesses(prevBusinesses => 
-        prevBusinesses.map(business => 
-          business.id === businessId 
-            ? { 
-                ...business, 
-                verified: approve,
-                verified_at: approve ? new Date().toISOString() : null,
-                verified_by: approve ? user?.id || null : null
-              }
-            : business
-        )
-      );
+      const updateData = {
+        verified: approve,
+        verified_at: approve ? new Date().toISOString() : null,
+        verified_by: approve ? user?.id : null
+      };
+
+      console.log('Update data:', updateData);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('business_profiles')
-        .update({
-          verified: approve,
-          verified_at: approve ? new Date().toISOString() : null,
-          verified_by: approve ? user?.id : null
-        })
-        .eq('id', businessId);
+        .update(updateData)
+        .eq('id', businessId)
+        .select('*');
 
       if (error) {
         console.error('Database update error:', error);
-        // Revert optimistic update on error
-        await fetchBusinesses();
         throw error;
       }
 
-      console.log('Business verification updated successfully');
+      console.log('Update result:', data);
 
+      // Show success message
       toast({
         title: approve ? "Business Verified" : "Business Rejected",
         description: `The business has been ${approve ? 'verified' : 'rejected'} successfully.`,
       });
+
+      // Refresh the businesses list to get the latest data
+      await fetchBusinesses();
       
     } catch (error) {
       console.error('Error updating business verification:', error);
