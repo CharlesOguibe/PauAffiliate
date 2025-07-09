@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/table";
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import AffiliatesTable from './AffiliatesTable';
 
 // Type for database function responses
 interface DatabaseFunctionResponse {
@@ -610,9 +609,6 @@ const AdminPanel = () => {
           </div>
         </div>
       </GlassCard>
-
-      {/* Affiliates Management */}
-      <AffiliatesTable />
 
       {/* Business Verification */}
       <GlassCard className="overflow-hidden">
