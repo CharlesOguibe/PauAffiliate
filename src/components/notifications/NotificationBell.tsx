@@ -8,6 +8,14 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+interface WithdrawalDetails {
+  amount: number;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  requestId: string;
+}
+
 interface Notification {
   id: string;
   title: string;
@@ -15,6 +23,7 @@ interface Notification {
   type: 'sale' | 'commission' | 'withdrawal' | 'info';
   read: boolean;
   createdAt: Date;
+  withdrawalDetails?: WithdrawalDetails;
 }
 
 interface NotificationBellProps {
@@ -53,20 +62,6 @@ const NotificationBell = ({ notifications, onMarkAsRead, onClearAll }: Notificat
     return 'Just now';
   };
 
-  const parseWithdrawalDetails = (message: string) => {
-    // Extract details from withdrawal notification messages
-    const amountMatch = message.match(/₦([\d,]+\.?\d*)/);
-    const bankMatch = message.match(/Bank: ([^,]+)/);
-    const accountMatch = message.match(/Account: ([^(]+)\(([^)]+)\)/);
-    
-    return {
-      amount: amountMatch ? amountMatch[1] : null,
-      bank: bankMatch ? bankMatch[1] : null,
-      accountNumber: accountMatch ? accountMatch[1].trim() : null,
-      accountName: accountMatch ? accountMatch[2] : null
-    };
-  };
-
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
@@ -80,11 +75,11 @@ const NotificationBell = ({ notifications, onMarkAsRead, onClearAll }: Notificat
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0" align="end">
-        <div className="border-b p-4">
+        <div className="border-b p-4 bg-gray-800 text-white">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Notifications</h3>
+            <h3 className="font-semibold text-white">Notifications</h3>
             {notifications.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={onClearAll}>
+              <Button variant="ghost" size="sm" onClick={onClearAll} className="text-white hover:bg-gray-700">
                 <X className="h-4 w-4" />
               </Button>
             )}
@@ -97,8 +92,7 @@ const NotificationBell = ({ notifications, onMarkAsRead, onClearAll }: Notificat
             </div>
           ) : (
             notifications.map((notification) => {
-              const isWithdrawal = notification.type === 'withdrawal';
-              const withdrawalDetails = isWithdrawal ? parseWithdrawalDetails(notification.message) : null;
+              const isWithdrawal = notification.type === 'withdrawal' && notification.withdrawalDetails;
               
               return (
                 <div
@@ -115,34 +109,33 @@ const NotificationBell = ({ notifications, onMarkAsRead, onClearAll }: Notificat
                         <p className="text-sm font-medium text-gray-900">
                           {notification.title}
                         </p>
-                        <span className="text-xs text-gray-500">
-                          {formatTime(notification.createdAt)}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-500">
+                            {formatTime(notification.createdAt)}
+                          </span>
+                          {!notification.read && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          )}
+                        </div>
                       </div>
                       
-                      {isWithdrawal && withdrawalDetails ? (
-                        <div className="mt-2 space-y-2">
+                      {isWithdrawal && notification.withdrawalDetails ? (
+                        <div className="mt-2">
                           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-sm font-medium text-orange-800">Withdrawal Request</span>
                               <span className="text-lg font-bold text-orange-600">
-                                ₦{withdrawalDetails.amount}
+                                ₦{notification.withdrawalDetails.amount.toFixed(2)}
                               </span>
                             </div>
                             <div className="space-y-1 text-xs text-orange-700">
-                              {withdrawalDetails.bank && (
-                                <div><span className="font-medium">Bank:</span> {withdrawalDetails.bank}</div>
-                              )}
-                              {withdrawalDetails.accountNumber && (
-                                <div><span className="font-medium">Account:</span> {withdrawalDetails.accountNumber}</div>
-                              )}
-                              {withdrawalDetails.accountName && (
-                                <div><span className="font-medium">Name:</span> {withdrawalDetails.accountName}</div>
-                              )}
+                              <div><span className="font-medium">Bank:</span> {notification.withdrawalDetails.bankName}</div>
+                              <div><span className="font-medium">Account:</span> {notification.withdrawalDetails.accountNumber}</div>
+                              <div><span className="font-medium">Name:</span> {notification.withdrawalDetails.accountName}</div>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-600">
-                            {notification.message.split('.')[0]}.
+                          <p className="text-sm text-gray-600 mt-2">
+                            A new withdrawal request has been submitted for review.
                           </p>
                         </div>
                       ) : (
@@ -151,9 +144,6 @@ const NotificationBell = ({ notifications, onMarkAsRead, onClearAll }: Notificat
                         </p>
                       )}
                     </div>
-                    {!notification.read && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    )}
                   </div>
                 </div>
               );

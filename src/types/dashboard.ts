@@ -49,4 +49,11 @@ export interface DashboardNotification {
   type: 'sale' | 'commission' | 'withdrawal' | 'info';
   read: boolean;
   createdAt: Date;
+  withdrawalDetails?: {
+    amount: number;
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+    requestId: string;
+  };
 }

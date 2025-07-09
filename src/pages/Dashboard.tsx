@@ -54,8 +54,54 @@ const Dashboard = () => {
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [productsCount, setProductsCount] = useState(0);
   const [totalReferralLinks, setTotalReferralLinks] = useState(0);
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
 
-  // Fetch products count and total referral links for business users
+  // Fetch admin notifications for admin users
+  useEffect(() => {
+    const fetchAdminNotifications = async () => {
+      if (!isAdminUser || !user?.id) return;
+      
+      try {
+        // Get all withdrawal requests to create admin notifications
+        const { data: withdrawalData, error: withdrawalError } = await supabase
+          .from('withdrawal_requests')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false });
+
+        if (withdrawalError) {
+          console.error('Error fetching withdrawal requests for notifications:', withdrawalError);
+          return;
+        }
+
+        if (withdrawalData) {
+          // Transform withdrawal requests into notification format
+          const withdrawalNotifications = withdrawalData.map(req => ({
+            id: req.id,
+            title: 'Withdrawal Request Submitted',
+            message: `₦${req.amount.toFixed(2)} - Bank: ${req.bank_name}, Account: ${req.account_number} (${req.account_name})`,
+            type: 'withdrawal' as const,
+            read: false,
+            createdAt: new Date(req.created_at),
+            withdrawalDetails: {
+              amount: req.amount,
+              bankName: req.bank_name,
+              accountNumber: req.account_number,
+              accountName: req.account_name,
+              requestId: req.id
+            }
+          }));
+          
+          setAdminNotifications(withdrawalNotifications);
+        }
+      } catch (error) {
+        console.error('Error fetching admin notifications:', error);
+      }
+    };
+
+    fetchAdminNotifications();
+  }, [isAdminUser, user?.id]);
+
   useEffect(() => {
     const fetchBusinessMetrics = async () => {
       if (isBusinessUser && user?.id) {
@@ -166,13 +212,29 @@ const Dashboard = () => {
     }
   };
 
+  const handleAdminMarkNotificationAsRead = async (id: string) => {
+    setAdminNotifications(prev => 
+      prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+  };
+
+  const handleAdminClearNotifications = async () => {
+    setAdminNotifications(prev => 
+      prev.map(notification => ({ ...notification, read: true }))
+    );
+  };
+
   return (
     <div className="min-h-screen bg-secondary/50">
       <DashboardHeader
         user={user}
-        notifications={notifications}
-        onMarkNotificationAsRead={handleMarkNotificationAsRead}
-        onClearNotifications={handleClearNotifications}
+        notifications={isAdminUser ? adminNotifications : notifications}
+        onMarkNotificationAsRead={isAdminUser ? handleAdminMarkNotificationAsRead : handleMarkNotificationAsRead}
+        onClearNotifications={isAdminUser ? handleAdminClearNotifications : handleClearNotifications}
         onLogout={handleLogout}
       />
       

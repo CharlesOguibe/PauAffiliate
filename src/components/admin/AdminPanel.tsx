@@ -40,7 +40,7 @@ const AdminPanel = () => {
   useEffect(() => {
     fetchBusinesses();
     fetchWithdrawalRequests();
-    fetchNotifications();
+    fetchAdminNotifications();
   }, []);
 
   const fetchBusinesses = async () => {
@@ -88,29 +88,49 @@ const AdminPanel = () => {
     }
   };
 
-  const fetchNotifications = async () => {
+  const fetchAdminNotifications = async () => {
     if (!user?.id) return;
     
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
+      // Get all withdrawal requests to create admin notifications
+      const { data: withdrawalData, error: withdrawalError } = await supabase
+        .from('withdrawal_requests')
+        .select(`
+          *,
+          profiles:affiliate_id (
+            name,
+            email
+          )
+        `)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
-      console.log('Admin notifications query result:', data, error);
+      if (withdrawalError) {
+        console.error('Error fetching withdrawal requests for notifications:', withdrawalError);
+        return;
+      }
 
-      if (data) {
-        const transformedNotifications: DashboardNotification[] = data.map(n => ({
-          id: n.id,
-          title: n.title,
-          message: n.message,
-          type: n.type as 'sale' | 'commission' | 'withdrawal' | 'info',
-          read: n.read,
-          createdAt: new Date(n.created_at)
+      console.log('Admin withdrawal notifications data:', withdrawalData);
+
+      if (withdrawalData) {
+        // Transform withdrawal requests into notification format
+        const withdrawalNotifications: DashboardNotification[] = withdrawalData.map(req => ({
+          id: req.id,
+          title: 'Withdrawal Request Submitted',
+          message: `₦${req.amount.toFixed(2)} - Bank: ${req.bank_name}, Account: ${req.account_number} (${req.account_name})`,
+          type: 'withdrawal' as const,
+          read: false,
+          createdAt: new Date(req.created_at),
+          withdrawalDetails: {
+            amount: req.amount,
+            bankName: req.bank_name,
+            accountNumber: req.account_number,
+            accountName: req.account_name,
+            requestId: req.id
+          }
         }));
-        setNotifications(transformedNotifications);
+        
+        setNotifications(withdrawalNotifications);
       }
     } catch (error) {
       console.error('Error fetching admin notifications:', error);
@@ -118,29 +138,22 @@ const AdminPanel = () => {
   };
 
   const handleMarkNotificationAsRead = async (id: string) => {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
-      
-      fetchNotifications();
-    } catch (error) {
-      console.error('Error marking notification as read:', error);
-    }
+    // For withdrawal notifications, we'll just update the local state
+    // since these are generated from withdrawal requests, not stored notifications
+    setNotifications(prev => 
+      prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
   };
 
   const handleClearNotifications = async () => {
-    try {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user?.id);
-      
-      fetchNotifications();
-    } catch (error) {
-      console.error('Error clearing notifications:', error);
-    }
+    // Mark all notifications as read
+    setNotifications(prev => 
+      prev.map(notification => ({ ...notification, read: true }))
+    );
   };
 
   const fetchWithdrawalRequests = async () => {
