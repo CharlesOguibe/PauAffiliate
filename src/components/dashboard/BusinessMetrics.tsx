@@ -19,10 +19,15 @@ const BusinessMetrics = ({
   productsCount = 0,
   totalReferralLinks = 0
 }: BusinessMetricsProps) => {
-  // For affiliate users, show products they're promoting and their referral links
+  // For affiliate users, calculate unique products they're promoting and their total referral links
   // For business users, show their products and total referrals to their products
-  const productsMetric = isAffiliateUser ? referralLinks.length : productsCount;
-  const linksMetric = isAffiliateUser ? referralLinks.length : totalReferralLinks;
+  const productsMetric = isAffiliateUser 
+    ? new Set(referralLinks.map(link => link.productId)).size // Unique products being promoted
+    : productsCount;
+    
+  const linksMetric = isAffiliateUser 
+    ? referralLinks.length // Total referral links created by affiliate
+    : totalReferralLinks; // Total referral links created for business products
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
