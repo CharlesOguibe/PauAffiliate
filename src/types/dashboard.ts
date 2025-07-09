@@ -1,4 +1,3 @@
-
 export interface WithdrawalRequest {
   id: string;
   amount: number;
@@ -13,6 +12,7 @@ export interface WithdrawalRequest {
   profiles: {
     name: string;
     email: string;
+    role?: string;
   };
 }
 
