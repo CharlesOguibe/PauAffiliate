@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -40,6 +41,7 @@ const Dashboard = () => {
   const isBusinessUser = user?.role === 'business';
   const isAdminUser = user?.role === 'admin';
   
+  // Enable earnings data fetching for both affiliate and business users
   const {
     referralLinks,
     earnings,

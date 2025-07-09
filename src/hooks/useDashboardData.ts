@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { ReferralLink } from '@/types';
@@ -110,6 +111,7 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
         console.log('Business sales query result:', businessSales, salesError);
 
         if (businessSales) {
+          // Business gets the sale amount minus the commission paid to affiliates
           totalEarnings = businessSales.reduce((sum, sale) => sum + (sale.amount - sale.commission_amount), 0);
           pendingEarnings = businessSales
             .filter(sale => sale.status === 'pending')
@@ -157,7 +159,47 @@ export const useDashboardData = (userId: string | undefined, shouldFetchEarnings
       console.log('User wallet lookup:', userWallet, walletError);
 
       if (!userWallet) {
-        console.log('No wallet found for user, skipping transactions fetch');
+        console.log('No wallet found for user, checking if user is business for direct sales transactions');
+        
+        // Check if this is a business user - if so, show their sales as transactions
+        const { data: businessProfile } = await supabase
+          .from('business_profiles')
+          .select('id')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (businessProfile) {
+          // For business users, show sales of their products as transactions
+          const { data: businessSales, error: salesError } = await supabase
+            .from('sales')
+            .select(`
+              id,
+              amount,
+              commission_amount,
+              created_at,
+              status,
+              products!fk_sales_product!inner(name, business_id)
+            `)
+            .eq('products.business_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+          console.log('Business sales query result:', businessSales, salesError);
+
+          if (businessSales) {
+            const businessTransactions = businessSales.map(sale => ({
+              id: sale.id,
+              type: 'commission' as const,
+              amount: sale.amount - sale.commission_amount, // Business gets sale amount minus commission
+              description: `Sale of ${sale.products.name}`,
+              date: new Date(sale.created_at),
+              status: sale.status === 'completed' ? 'completed' as const : 'pending' as const
+            }));
+            setTransactions(businessTransactions);
+            return;
+          }
+        }
+        
         return;
       }
 
