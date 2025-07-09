@@ -11,12 +11,24 @@ interface EmailNotificationData {
 
 export const sendEmailNotification = async (notificationData: EmailNotificationData) => {
   try {
-    console.log('Sending email notification via EmailJS:', notificationData);
+    console.log('=== Email Notification Debug ===');
+    console.log('Notification Data:', JSON.stringify(notificationData, null, 2));
     
     // Validate required fields
     if (!notificationData.type || !notificationData.userEmail || !notificationData.userName) {
-      console.error('Missing required notification fields');
+      console.error('Missing required notification fields:', {
+        type: !!notificationData.type,
+        userEmail: !!notificationData.userEmail,
+        userName: !!notificationData.userName
+      });
       return { success: false, error: 'Missing required fields' };
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(notificationData.userEmail)) {
+      console.error('Invalid email format:', notificationData.userEmail);
+      return { success: false, error: 'Invalid email format' };
     }
 
     let templateId: string;
@@ -33,23 +45,27 @@ export const sendEmailNotification = async (notificationData: EmailNotificationD
         subject: 'Withdrawal Request Submitted',
         message: `Your withdrawal request for ₦${notificationData.data.amount} has been submitted successfully and will be processed within 24-48 hours.`
       };
+      
+      console.log('Using withdrawal template:', templateId);
     } else {
       throw new Error(`Unknown email type: ${notificationData.type}`);
     }
 
-    console.log('Template params being sent:', templateParams);
+    console.log('Template params:', JSON.stringify(templateParams, null, 2));
+    console.log('Sending to email:', notificationData.userEmail);
 
     const result = await sendEmailViaEmailJS(templateId, templateParams, notificationData.userEmail);
     
     if (result.success) {
-      console.log('Email notification sent successfully via EmailJS');
+      console.log('Email notification sent successfully');
+      console.log('EmailJS response:', result.data);
       return { success: true, data: result.data };
     } else {
-      console.error('Failed to send email via EmailJS:', result.error);
+      console.error('Failed to send email:', result.error);
       return { success: false, error: result.error };
     }
   } catch (error) {
-    console.error('Error sending email notification:', error);
+    console.error('Error in sendEmailNotification:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 };
@@ -65,15 +81,21 @@ export const sendWithdrawalRequestEmail = async (
     accountName: string
   }
 ) => {
+  console.log('=== Withdrawal Email Debug ===');
   console.log('Sending withdrawal request email to:', userEmail);
-  console.log('With withdrawal data:', withdrawalData);
+  console.log('User name:', userName);
+  console.log('Withdrawal data:', JSON.stringify(withdrawalData, null, 2));
   
   if (!userEmail || !userName || !withdrawalData.amount) {
-    console.error('Invalid withdrawal request email data');
+    console.error('Invalid withdrawal request email data:', {
+      userEmail: !!userEmail,
+      userName: !!userName,
+      amount: !!withdrawalData.amount
+    });
     return { success: false, error: 'Invalid email data' };
   }
 
-  return sendEmailNotification({
+  const result = await sendEmailNotification({
     type: 'withdrawal_request',
     userEmail,
     userName,
@@ -84,6 +106,9 @@ export const sendWithdrawalRequestEmail = async (
       accountName: String(withdrawalData.accountName || '')
     }
   });
+  
+  console.log('Withdrawal email result:', result);
+  return result;
 };
 
 // Placeholder functions for backward compatibility
@@ -96,7 +121,8 @@ export const sendGeneralNotificationEmail = async (
     notificationType: string
   }
 ) => {
-  console.log('General notification email not implemented via EmailJS - using withdrawal template only');
+  console.log('General notification email requested but not implemented via EmailJS');
+  console.log('Email:', userEmail, 'User:', userName, 'Data:', notificationData);
   return { success: false, error: 'General notifications not supported via EmailJS' };
 };
 
@@ -112,6 +138,7 @@ export const sendWithdrawalStatusEmail = async (
     notes?: string
   }
 ) => {
-  console.log('Withdrawal status email not implemented via EmailJS - using withdrawal template only');
+  console.log('Withdrawal status email requested but not implemented via EmailJS');
+  console.log('Email:', userEmail, 'User:', userName, 'Data:', statusData);
   return { success: false, error: 'Withdrawal status emails not supported via EmailJS' };
 };

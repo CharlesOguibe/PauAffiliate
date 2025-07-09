@@ -14,28 +14,44 @@ export const sendEmailViaEmailJS = async (
   userEmail: string
 ) => {
   try {
-    console.log('Sending email via EmailJS:', { templateId, userEmail, templateParams });
+    console.log('=== EmailJS Debug Info ===');
+    console.log('Service ID:', 'service_zvna17d');
+    console.log('Template ID:', templateId);
+    console.log('User Email:', userEmail);
+    console.log('Template Params:', JSON.stringify(templateParams, null, 2));
+    
+    const emailData = {
+      ...templateParams,
+      to_email: userEmail,
+      from_name: 'PAUAffiliate',
+      reply_to: 'support@pauaffiliate.com'
+    };
+    
+    console.log('Final email data being sent:', JSON.stringify(emailData, null, 2));
     
     const response = await emailjs.send(
       'service_zvna17d',
       templateId,
-      {
-        ...templateParams,
-        to_email: userEmail,
-        from_name: 'PAUAffiliate',
-        reply_to: 'support@pauaffiliate.com'
-      }
+      emailData
     );
 
-    console.log('Email sent successfully via EmailJS:', response);
+    console.log('EmailJS Response:', response);
+    console.log('Email Status:', response.status);
+    console.log('Email Text:', response.text);
+    console.log('=== End EmailJS Debug ===');
+    
     return { success: true, data: response };
   } catch (error) {
-    console.error('EmailJS sending error:', error);
+    console.error('=== EmailJS ERROR ===');
     console.error('Error details:', {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : 'No stack trace'
     });
+    console.error('Service ID used:', 'service_zvna17d');
+    console.error('Template ID used:', templateId);
+    console.error('User email used:', userEmail);
+    console.error('=== End EmailJS ERROR ===');
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
   }
 };
