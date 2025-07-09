@@ -3,7 +3,9 @@ import emailjs from '@emailjs/browser';
 
 // Initialize EmailJS with your public key
 export const initializeEmailJS = () => {
+  console.log('Initializing EmailJS with public key: 6Fm0hJrxDmsYM7Umi');
   emailjs.init("6Fm0hJrxDmsYM7Umi");
+  console.log('EmailJS initialized successfully');
 };
 
 export const sendEmailViaEmailJS = async (
@@ -29,6 +31,11 @@ export const sendEmailViaEmailJS = async (
     return { success: true, data: response };
   } catch (error) {
     console.error('EmailJS sending error:', error);
+    console.error('Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace'
+    });
     return { success: false, error: error instanceof Error ? error.message : 'Failed to send email' };
   }
 };

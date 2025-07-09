@@ -37,6 +37,8 @@ export const sendEmailNotification = async (notificationData: EmailNotificationD
       throw new Error(`Unknown email type: ${notificationData.type}`);
     }
 
+    console.log('Template params being sent:', templateParams);
+
     const result = await sendEmailViaEmailJS(templateId, templateParams, notificationData.userEmail);
     
     if (result.success) {
@@ -64,6 +66,7 @@ export const sendWithdrawalRequestEmail = async (
   }
 ) => {
   console.log('Sending withdrawal request email to:', userEmail);
+  console.log('With withdrawal data:', withdrawalData);
   
   if (!userEmail || !userName || !withdrawalData.amount) {
     console.error('Invalid withdrawal request email data');
