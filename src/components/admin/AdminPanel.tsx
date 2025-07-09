@@ -153,18 +153,34 @@ const AdminPanel = () => {
 
       console.log('Profiles data:', profilesData);
 
+      // Check which users are business users by looking at business_profiles
+      const { data: businessProfilesData, error: businessError } = await supabase
+        .from('business_profiles')
+        .select('id')
+        .in('id', affiliateIds);
+
+      if (businessError) {
+        console.error('Business profiles query error:', businessError);
+      }
+
+      console.log('Business profiles data:', businessProfilesData);
+
+      const businessUserIds = new Set(businessProfilesData?.map(bp => bp.id) || []);
+
       // Create a map of affiliate ID to email and role
       const profileMap = new Map();
       if (profilesData) {
         profilesData.forEach(profile => {
-          profileMap.set(profile.id, { email: profile.email, role: profile.role });
+          // Determine actual user type based on business_profiles existence
+          const actualRole = businessUserIds.has(profile.id) ? 'business' : 'affiliate';
+          profileMap.set(profile.id, { email: profile.email, role: actualRole });
         });
       }
 
-      // Transform the data with proper email lookup
+      // Transform the data with proper email lookup and corrected user type
       const transformedData: WithdrawalRequest[] = withdrawalData.map(req => {
         const profile = profileMap.get(req.affiliate_id) || { email: 'No Email Available', role: 'affiliate' };
-        console.log(`Request ${req.id}: affiliate_id ${req.affiliate_id} -> email: ${profile.email}, role: ${profile.role}`);
+        console.log(`Request ${req.id}: affiliate_id ${req.affiliate_id} -> email: ${profile.email}, corrected role: ${profile.role}`);
         
         return {
           id: req.id,
@@ -614,16 +630,16 @@ const AdminPanel = () => {
       </GlassCard>
 
       {/* Pending Withdrawal Requests - Affiliates */}
-      {renderWithdrawalTable(affiliatePendingWithdrawals, "Pending Affiliate Withdrawal Requests", true, false)}
+      {renderWithdrawalTable(affiliatePendingWithdrawals, "Pending Withdrawal Requests - Affiliates", true, false)}
 
       {/* Pending Withdrawal Requests - Business */}
-      {renderWithdrawalTable(businessPendingWithdrawals, "Pending Business Withdrawal Requests", true, false)}
+      {renderWithdrawalTable(businessPendingWithdrawals, "Pending Withdrawal Requests - Business", true, false)}
 
       {/* Approved Withdrawal Requests - Affiliates */}
-      {renderWithdrawalTable(affiliateApprovedWithdrawals, "Approved Affiliate Withdrawals - Ready for Payout", false, true)}
+      {renderWithdrawalTable(affiliateApprovedWithdrawals, "Approved Withdrawals - Affiliates", false, true)}
 
       {/* Approved Withdrawal Requests - Business */}
-      {renderWithdrawalTable(businessApprovedWithdrawals, "Approved Business Withdrawals - Ready for Payout", false, true)}
+      {renderWithdrawalTable(businessApprovedWithdrawals, "Approved Withdrawals - Business", false, true)}
     </div>
   );
 };
