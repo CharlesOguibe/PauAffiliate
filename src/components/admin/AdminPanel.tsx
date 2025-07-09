@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Shield, CheckCircle, XCircle, Clock, Users, Building, DollarSign } from 'lucide-react';
 import Button from '@/components/ui/custom/Button';
@@ -45,11 +46,15 @@ const AdminPanel = () => {
 
   const fetchBusinesses = async () => {
     try {
+      console.log('Fetching businesses...');
+      
       // Get all business profiles first
       const { data: businessData, error: businessError } = await supabase
         .from('business_profiles')
         .select('*')
         .order('created_at', { ascending: false });
+
+      console.log('Business data:', businessData, businessError);
 
       if (businessError) throw businessError;
 
@@ -82,6 +87,7 @@ const AdminPanel = () => {
         !adminUserIds.has(business.id)
       );
 
+      console.log('Filtered businesses:', filteredBusinesses);
       setBusinesses(filteredBusinesses);
     } catch (error) {
       console.error('Error fetching businesses:', error);
@@ -258,6 +264,8 @@ const AdminPanel = () => {
   const handleVerifyBusiness = async (businessId: string, approve: boolean) => {
     setLoading(true);
     try {
+      console.log(`${approve ? 'Approving' : 'Rejecting'} business:`, businessId);
+      
       const { error } = await supabase
         .from('business_profiles')
         .update({
@@ -266,15 +274,23 @@ const AdminPanel = () => {
         })
         .eq('id', businessId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database update error:', error);
+        throw error;
+      }
+
+      console.log('Business verification updated successfully');
 
       toast({
         title: approve ? "Business Verified" : "Business Rejected",
         description: `The business has been ${approve ? 'verified' : 'rejected'} successfully.`,
       });
 
-      fetchBusinesses();
+      // Force refresh the businesses list
+      await fetchBusinesses();
+      
     } catch (error) {
+      console.error('Error updating business verification:', error);
       toast({
         title: "Error",
         description: "Failed to update business verification status.",
@@ -592,6 +608,9 @@ const AdminPanel = () => {
       <GlassCard className="overflow-hidden">
         <div className="p-6 border-b">
           <h3 className="text-lg font-semibold">Business Verification</h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Total businesses: {businesses.length} | Verified: {businesses.filter(b => b.verified).length} | Pending: {businesses.filter(b => !b.verified).length}
+          </p>
         </div>
         <div className="overflow-x-auto">
           <Table>
@@ -629,7 +648,11 @@ const AdminPanel = () => {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
-                    {formatDate(business.created_at)}
+                    {new Date(business.created_at).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
                   </TableCell>
                   <TableCell>
                     {!business.verified && (
