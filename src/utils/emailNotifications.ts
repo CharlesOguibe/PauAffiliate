@@ -16,7 +16,7 @@ export const sendEmailNotification = async (notificationData: EmailNotificationD
     
     const formData = new FormData();
     formData.append('apikey', ELASTIC_EMAIL_API_KEY);
-    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('from', 'cjoguibe@gmail.com'); // Use verified email
     formData.append('fromName', 'PAUAffiliate Team');
     formData.append('to', notificationData.userEmail);
     formData.append('subject', getEmailSubject(notificationData.type, notificationData.data));
@@ -62,7 +62,7 @@ export const sendWithdrawalRequestEmail = async (
 
     const formData = new FormData();
     formData.append('apikey', ELASTIC_EMAIL_API_KEY);
-    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('from', 'cjoguibe@gmail.com'); // Use verified email
     formData.append('fromName', 'PAUAffiliate Team');
     formData.append('to', userEmail);
     formData.append('subject', 'Withdrawal Request Submitted - PAUAffiliate');
@@ -120,7 +120,7 @@ export const sendGeneralNotificationEmail = async (
 
     const formData = new FormData();
     formData.append('apikey', ELASTIC_EMAIL_API_KEY);
-    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('from', 'cjoguibe@gmail.com'); // Use verified email
     formData.append('fromName', 'PAUAffiliate Team');
     formData.append('to', userEmail);
     formData.append('subject', `${notificationData.title} - PAUAffiliate`);
@@ -174,7 +174,7 @@ export const sendWithdrawalStatusEmail = async (
     const statusMessage = getStatusMessage(statusData.status);
     const formData = new FormData();
     formData.append('apikey', ELASTIC_EMAIL_API_KEY);
-    formData.append('from', 'noreply@pauaffiliate.com');
+    formData.append('from', 'cjoguibe@gmail.com'); // Use verified email
     formData.append('fromName', 'PAUAffiliate Team');
     formData.append('to', userEmail);
     formData.append('subject', `Withdrawal ${statusData.status.charAt(0).toUpperCase() + statusData.status.slice(1)} - PAUAffiliate`);
