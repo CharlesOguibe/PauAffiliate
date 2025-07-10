@@ -94,6 +94,7 @@ const Auth = () => {
         email,
         password,
         options: {
+          emailRedirectTo: 'https://pauaffiliate.online/auth/login',
           data: {
             name: role === 'business' ? businessName : name,
             role,
@@ -141,6 +142,9 @@ const Auth = () => {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
+        options: {
+          emailRedirectTo: 'https://pauaffiliate.online/auth/login',
+        },
       });
       
       if (error) throw error;

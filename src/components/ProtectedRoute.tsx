@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +23,9 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: user.email,
+        options: {
+          emailRedirectTo: 'https://pauaffiliate.online/auth/login',
+        },
       });
       
       if (error) throw error;
